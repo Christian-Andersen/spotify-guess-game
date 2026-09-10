@@ -33,7 +33,8 @@ export function useGameLogic({
   const [totalScore, setTotalScore] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [currentGuess, setCurrentGuess] = useState("");
-  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const retryAttemptRef = useRef(0);
   const [playlistError, setPlaylistError] = useState<string | null>(null);
@@ -91,7 +92,8 @@ export function useGameLogic({
       // Success: clear backoff state so any later failure starts fresh
       playlistBackoffRef.current.reset();
       retryAttemptRef.current = 0;
-      setRetryCountdown(null);
+      setIsRetrying(false);
+      setRetryCountdown(0);
       setRetryAttempt(0);
       setPlaylistError(null);
       setPlaylists(mapped);
@@ -115,6 +117,7 @@ export function useGameLogic({
         const waitMs = playlistBackoffRef.current.nextDelayMs(e);
         const attempt = retryAttemptRef.current + 1;
         retryAttemptRef.current = attempt;
+        setIsRetrying(true);
         setRetryAttempt(attempt);
         setRetryCountdown(Math.ceil(waitMs / 1000));
         setPlaylistError(null);
@@ -122,7 +125,8 @@ export function useGameLogic({
           `[game:playlists] retryable error -> attempt ${attempt}, retrying in ${waitMs}ms`,
         );
       } else {
-        setRetryCountdown(null);
+        setIsRetrying(false);
+        setRetryCountdown(0);
         retryAttemptRef.current = 0;
         setRetryAttempt(0);
         setPlaylistError(
@@ -138,18 +142,17 @@ export function useGameLogic({
 
   // Tick the retry countdown down; at 0, re-fetch with the computed delay
   useEffect(() => {
-    if (retryCountdown === null) return;
+    if (!isRetrying) return;
     if (retryCountdown <= 0) {
-      setRetryCountdown(null);
-      void fetchPlaylists();
-      return;
+      const t = setTimeout(() => void fetchPlaylists(), 0);
+      return () => clearTimeout(t);
     }
     const t = setTimeout(
-      () => setRetryCountdown((c) => (c === null ? null : c - 1)),
+      () => setRetryCountdown((c) => c - 1),
       1000,
     );
     return () => clearTimeout(t);
-  }, [retryCountdown, fetchPlaylists]);
+  }, [isRetrying, retryCountdown, fetchPlaylists]);
 
   const retryPlaylists = useCallback(() => {
     playlistBackoffRef.current.reset();
@@ -341,6 +344,7 @@ export function useGameLogic({
     snippetDuration: SNIPPET_DURATION_S,
     retryCountdown,
     retryAttempt,
+    isRetrying,
     playlistError,
     fetchPlaylists,
     retryPlaylists,

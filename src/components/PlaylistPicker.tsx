@@ -13,7 +13,8 @@ import { cn } from "../lib/cn";
 interface PlaylistPickerProps {
   playlists: Playlist[];
   isLoading: boolean;
-  retryCountdown: number | null;
+  isRetrying: boolean;
+  retryCountdown: number;
   retryAttempt: number;
   playlistError: string | null;
   onFetchPlaylists: () => void;
@@ -25,6 +26,7 @@ interface PlaylistPickerProps {
 export function PlaylistPicker({
   playlists,
   isLoading,
+  isRetrying,
   retryCountdown,
   retryAttempt,
   playlistError,
@@ -133,10 +135,10 @@ export function PlaylistPicker({
               Go
             </button>
           </div>
-        ) : isLoading || retryCountdown !== null ? (
+        ) : isLoading || isRetrying ? (
           <div className="flex flex-col items-center gap-4 py-20">
             <Loader2 className="h-8 w-8 animate-spin text-green-500" />
-            {retryCountdown !== null ? (
+            {isRetrying && retryCountdown > 0 ? (
               <div className="text-center">
                 <p className="text-neutral-300">
                   Rate limited by Spotify — retrying in{" "}

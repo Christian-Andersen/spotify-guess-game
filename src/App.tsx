@@ -56,6 +56,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
       <PlaylistPicker
         playlists={game.playlists}
         isLoading={game.isLoading}
+        isRetrying={game.isRetrying}
         retryCountdown={game.retryCountdown}
         retryAttempt={game.retryAttempt}
         playlistError={game.playlistError}
@@ -92,6 +93,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
 
     return (
       <GameBoard
+        key={game.currentRoundIndex}
         currentTrack={game.currentTrack}
         currentRoundIndex={game.currentRoundIndex}
         roundsTotal={game.roundsTotal}

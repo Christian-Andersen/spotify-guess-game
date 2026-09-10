@@ -19,18 +19,17 @@ export function useSpotifyAuth() {
   const [sdk, setSdk] = useState<SpotifyApi | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Derive error/loading from the env var instead of setting state in an effect
+  const [loading, setLoading] = useState(() => Boolean(CLIENT_ID));
+  const [error, setError] = useState<string | null>(() =>
+    CLIENT_ID
+      ? null
+      : "Missing VITE_SPOTIFY_CLIENT_ID. Create a .env file with your Spotify app client ID.",
+  );
   const sdkRef = useRef<SpotifyApi | null>(null);
 
   useEffect(() => {
-    if (!CLIENT_ID) {
-      setError(
-        "Missing VITE_SPOTIFY_CLIENT_ID. Create a .env file with your Spotify app client ID.",
-      );
-      setLoading(false);
-      return;
-    }
+    if (!CLIENT_ID) return;
 
     const auth = new AuthorizationCodeWithPKCEStrategy(
       CLIENT_ID,

@@ -45,19 +45,6 @@ export function GameBoard({
   const [muted, setMuted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const prevRoundRef = useRef(currentRoundIndex);
-
-  // Reset state on new round
-  useEffect(() => {
-    if (prevRoundRef.current === currentRoundIndex) return;
-    prevRoundRef.current = currentRoundIndex;
-    setGuess("");
-    setTimer(snippetDuration);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, [currentRoundIndex, snippetDuration]);
 
   // Focus input when guessing
   useEffect(() => {
@@ -69,7 +56,6 @@ export function GameBoard({
   // Countdown timer
   useEffect(() => {
     if (phase === "playing") {
-      setTimer(snippetDuration);
       timerRef.current = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
@@ -93,7 +79,7 @@ export function GameBoard({
         timerRef.current = null;
       }
     };
-  }, [phase, snippetDuration]);
+  }, [phase]);
 
   const handleSubmit = () => {
     const trimmed = guess.trim();

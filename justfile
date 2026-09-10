@@ -6,7 +6,8 @@ default:
     @just --list
 
 check:
-    pass
+    npm run lint
+    npm run build
 
 run:
     npm run dev

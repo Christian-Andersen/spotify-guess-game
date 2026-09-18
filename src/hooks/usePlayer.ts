@@ -1,10 +1,62 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
+import { sleep } from "../lib/backoff";
+import { FIRST_PLAY_STALL_MS, FIRST_PLAY_VERIFY_MS, FIRST_PLAY_WARMUP_MS } from "../lib/constants";
+
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
 interface UsePlayerOptions {
   getAccessToken: () => Promise<string | null>;
   enabled: boolean;
+}
+
+/**
+ * Starts playback on the given device via the Connect Web API. Returns the
+ * HTTP status so callers can distinguish the 403 "scope not granted" case.
+ */
+async function startPlayback(
+  deviceId: string,
+  token: string,
+  uris: string[],
+  positionMs: number,
+): Promise<number> {
+  const res = await fetch(
+    `${SPOTIFY_API_BASE}/me/player/play?device_id=${encodeURIComponent(deviceId)}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ uris, position_ms: positionMs }),
+    },
+  );
+  return res.status;
+}
+
+/**
+ * Watches the very first play of a session: once playback is ~2s old, if the
+ * SDK still reports no state, or a paused state that never progressed past
+ * FIRST_PLAY_STALL_MS, the opening stream cut early — start it once more.
+ * (A healthy first play is well past the threshold by then, so it's never
+ * restarted.)
+ */
+async function recoverIfStalledFirstPlay(
+  player: SpotifyPlayer,
+  deviceId: string,
+  getAccessToken: () => Promise<string | null>,
+  uris: string[],
+  positionMs: number,
+): Promise<void> {
+  await sleep(FIRST_PLAY_VERIFY_MS);
+  const state = await player.getCurrentState().catch(() => null);
+  if (state && !state.paused) return;
+  if (state && state.position > FIRST_PLAY_STALL_MS) return;
+
+  const token = await getAccessToken();
+  if (!token) return;
+  await player.activateElement();
+  await startPlayback(deviceId, token, uris, positionMs);
 }
 
 export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
@@ -13,6 +65,11 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
+  // The first play of a session gets the warmup + stall recovery; later plays
+  // go straight through. `firstPlayRetriedRef` stops recovery from looping if
+  // the retry also fails.
+  const hasPlayedRef = useRef(false);
+  const firstPlayRetriedRef = useRef(false);
 
   useEffect(() => {
     if (!enabled || playerRef.current) return;
@@ -63,6 +120,10 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
         setError(`Player auth failed: ${message}`);
       });
 
+      player.addListener("account_error", ({ message }) => {
+        setError(`Account can't use Web Playback: ${message}`);
+      });
+
       player.addListener("playback_error", ({ message }) => {
         setError(`Playback error: ${message}`);
       });
@@ -98,28 +159,33 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
       const token = await getAccessToken();
       if (!player || !token || !deviceId) return;
 
+      const firstPlay = !hasPlayedRef.current;
+
       // The current Web Playback SDK no longer exposes `player.play()` —
       // start playback through the Connect Web API, targeted at this device.
       await player.activateElement();
 
-      const res = await fetch(
-        `${SPOTIFY_API_BASE}/me/player/play?device_id=${encodeURIComponent(deviceId)}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ uris, position_ms: positionMs }),
-        },
-      );
+      // The very first play of a session races the transport settling after
+      // `ready` (and the activateElement() above), which can cut the opening
+      // stream ~1s in — wait briefly so it finishes establishing.
+      if (firstPlay) await sleep(FIRST_PLAY_WARMUP_MS);
 
-      if (!res.ok) {
+      const status = await startPlayback(deviceId, token, uris, positionMs);
+      if (status < 200 || status >= 300) {
         setError(
-          res.status === 403
+          status === 403
             ? "Spotify denied playback. Log out and back in to grant the playback scope."
-            : `Could not start playback (${res.status}). Is Spotify open?`,
+            : `Could not start playback (${status}). Is Spotify open?`,
         );
+        return;
+      }
+
+      if (firstPlay) {
+        hasPlayedRef.current = true;
+        if (!firstPlayRetriedRef.current) {
+          firstPlayRetriedRef.current = true;
+          void recoverIfStalledFirstPlay(player, deviceId, getAccessToken, uris, positionMs);
+        }
       }
     },
     [getAccessToken],

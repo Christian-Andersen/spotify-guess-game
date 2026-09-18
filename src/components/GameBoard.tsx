@@ -1,5 +1,4 @@
 import { Flag, Loader2, Music2, Volume2, VolumeX, X } from "lucide-react";
-import { useState } from "react";
 
 import type { RoundResult, Track } from "../types";
 
@@ -19,10 +18,11 @@ interface GameBoardProps {
   isPlayerReady: boolean;
   positionMs: number | null;
   durationMs: number | null;
+  muted: boolean;
+  onToggleMute: () => void;
   onPickTrack: (track: Track) => void;
   onGiveUp: () => void;
   onQuit: () => void;
-  onSetVolume: (volume: number) => void;
 }
 
 export function GameBoard({
@@ -37,12 +37,12 @@ export function GameBoard({
   isPlayerReady,
   positionMs,
   durationMs,
+  muted,
+  onToggleMute,
   onPickTrack,
   onGiveUp,
   onQuit,
-  onSetVolume,
 }: GameBoardProps) {
-  const [muted, setMuted] = useState(false);
   const durationSec = durationMs ? durationMs / 1000 : 0;
   const songProgress =
     durationSec > 0 ? Math.min(100, ((positionMs ?? 0) / durationSec / 1000) * 100) : 0;
@@ -52,12 +52,6 @@ export function GameBoard({
           (t) => t <= durationSec,
         )
       : [];
-
-  const toggleMute = () => {
-    const nextMuted = !muted;
-    setMuted(nextMuted);
-    onSetVolume(nextMuted ? 0 : 0.5);
-  };
 
   return (
     <div className="flex min-h-screen flex-col items-center px-4 py-8">
@@ -73,7 +67,7 @@ export function GameBoard({
             </span>
             <button
               type="button"
-              onClick={toggleMute}
+              onClick={onToggleMute}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white"
               aria-label={muted ? "Unmute" : "Mute"}
             >

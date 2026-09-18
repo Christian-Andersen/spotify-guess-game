@@ -39,6 +39,9 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
       .map((r) => ({ ...r.item, score: r.score ?? 1 }));
   }, [fuse, query]);
 
+  // The highlighted result (index is kept in bounds by the arrow handlers).
+  const highlighted = results[highlightIndex];
+
   // Keep the arrow-highlighted item visible in the scrollable list.
   useEffect(() => {
     listRef.current
@@ -70,7 +73,7 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
       }
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (results.length > 0) handlePick(results[highlightIndex]);
+      if (highlighted) handlePick(highlighted);
     } else if (e.key === "Escape") {
       setQuery("");
     }
@@ -88,6 +91,11 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
           onKeyDown={handleKeyDown}
           placeholder="Search for the song..."
           autoFocus
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls="song-results"
+          aria-activedescendant={highlighted ? `song-option-${highlighted.id}` : undefined}
+          aria-autocomplete="list"
           className="w-full rounded-xl border border-neutral-700 bg-neutral-900 py-4 pr-4 pl-12 text-lg text-white placeholder-neutral-500 transition-colors outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
         />
       </div>
@@ -95,10 +103,18 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
       {results.length > 0 && (
         <ul
           ref={listRef}
+          id="song-results"
+          role="listbox"
           className="absolute inset-x-0 z-20 mt-2 max-h-72 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900 shadow-2xl"
         >
           {results.map((track, i) => (
-            <li key={track.id} data-highlighted={i === highlightIndex}>
+            <li
+              key={track.id}
+              id={`song-option-${track.id}`}
+              role="option"
+              aria-selected={i === highlightIndex}
+              data-highlighted={i === highlightIndex}
+            >
               <button
                 type="button"
                 onClick={() => handlePick(track)}

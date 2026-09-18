@@ -4,10 +4,15 @@ import { useState, useCallback, useEffect, useRef } from "react";
 
 import type { Track, RoundResult, GamePhase, Playlist } from "../types";
 
-import { createExponentialBackoff, isRetryableError, sleep } from "../lib/backoff";
+import { createExponentialBackoff, extractStatus, isRetryableError, sleep } from "../lib/backoff";
 import { MAX_ROUND_POINTS, MIN_ROUND_POINTS, REVEAL_DELAY_MS } from "../lib/constants";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
+
+// Auto-retry failed playlist fetches at most this many consecutive times
+// before giving up and surfacing a manual "Try again". Spotify rate-limit
+// bursts are short-lived, so five attempts (with backoff) is generous.
+const MAX_RETRY_ATTEMPTS = 5;
 
 // Spotify's Feb 2026 migration moved playlist items from
 // `GET /playlists/{id}/tracks` to `GET /playlists/{id}/items`; the old path
@@ -40,19 +45,14 @@ interface UseGameLogicParams {
   isPlayerReady: boolean;
 }
 
-function statusOf(error: unknown): number | undefined {
-  if (error && typeof error === "object") {
-    const status = (error as { status?: unknown }).status;
-    if (typeof status === "number") return status;
-  }
-  return undefined;
-}
-
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    // `i` and `j` are always valid indices in this loop, so the values exist.
+    const temp = arr[i] as T;
+    arr[i] = arr[j] as T;
+    arr[j] = temp;
   }
   return arr;
 }
@@ -142,10 +142,23 @@ export function useGameLogic({
         const waitMs = playlistBackoffRef.current.nextDelayMs(error);
         const attempt = retryAttemptRef.current + 1;
         retryAttemptRef.current = attempt;
-        setIsRetrying(true);
-        setRetryAttempt(attempt);
-        setRetryCountdown(Math.ceil(waitMs / 1000));
-        setPlaylistError(null);
+
+        if (attempt >= MAX_RETRY_ATTEMPTS) {
+          // Surrender to a manual retry instead of looping forever.
+          playlistBackoffRef.current.reset();
+          retryAttemptRef.current = 0;
+          setIsRetrying(false);
+          setRetryCountdown(0);
+          setRetryAttempt(0);
+          setPlaylistError(
+            "Could not load playlists after several attempts. Check your connection and try again.",
+          );
+        } else {
+          setIsRetrying(true);
+          setRetryAttempt(attempt);
+          setRetryCountdown(Math.ceil(waitMs / 1000));
+          setPlaylistError(null);
+        }
       } else {
         setIsRetrying(false);
         setRetryCountdown(0);
@@ -171,12 +184,14 @@ export function useGameLogic({
 
   const retryPlaylists = useCallback(() => {
     playlistBackoffRef.current.reset();
+    retryAttemptRef.current = 0;
     void fetchPlaylists();
   }, [fetchPlaylists]);
 
   const fetchPlaylistTracks = useCallback(
     async (playlistId: string): Promise<Track[]> => {
       const backoff = createExponentialBackoff({ baseDelayMs: 1000 });
+      let attempt = 0;
       for (;;) {
         try {
           const token = await fetchAccessToken();
@@ -219,7 +234,7 @@ export function useGameLogic({
             }
 
             offset += limit;
-            if (page.items.length < limit || !page.next) break;
+            if (!page.next) break;
           }
 
           return allTracks;
@@ -227,6 +242,8 @@ export function useGameLogic({
           if (!isRetryableError(error)) {
             throw error;
           }
+          attempt += 1;
+          if (attempt >= MAX_RETRY_ATTEMPTS) throw error;
           const waitMs = backoff.nextDelayMs(error);
           await sleep(waitMs);
         }
@@ -256,7 +273,7 @@ export function useGameLogic({
         setTotalScore(0);
         setPhase("playing");
       } catch (error) {
-        if (statusOf(error) === 403) {
+        if (extractStatus(error) === 403) {
           setStartGameError(
             "Spotify only lets you load playlists you own or collaborate on via the API.",
           );

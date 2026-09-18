@@ -63,6 +63,20 @@ Open `http://127.0.0.1:5173` (match the loopback IP you registered — not `loca
 > also only returns playlists you **own or collaborate on**, so pasting someone
 > else's public playlist will return `403`.
 
+> **Troubleshooting — sound won't start (403 on `check_scope` in the console):**
+> the Web Playback SDK verifies your token carries the `streaming` scope before
+> it plays anything; that request failing usually means the permission wasn't
+> granted. The app checks this itself after every login: if the token can't
+> drive playback it logs you out automatically (dropping the cached token) and
+> explains why on the login screen, and every fresh login forces Spotify's
+> consent screen (`show_dialog=true`) so the current scope set is always shown.
+> If you were logged in before these checks existed, log out once and log back
+> in, ticking the "play music and control playback" toggle on the approval
+> screen. If the 403 _still_ appears, the console line
+> `[spotify-auth] playback access: …` shows the granted scopes and Premium
+> flag — a token with `streaming` + `premium=yes` that still 403s points at an
+> app-dashboard/Web Playback entitlement issue, not the app's code.
+
 ## Architecture
 
 ```
@@ -70,15 +84,17 @@ src/
 ├── components/
 │   ├── AuthOverlay.tsx      # Login screen with Spotify-branded entry
 │   ├── PlaylistPicker.tsx   # Grid of your playlists + URL/ID input
-│   ├── GameBoard.tsx        # Snippet player, timer, guess input, reveal
-│   └── ScoreCard.tsx        # Final score, grade, per-round recap
+│   ├── GameBoard.tsx        # Clue area, song progress, guess input, reveal
+│   ├── SongPicker.tsx       # Fuzzy search + keyboard-navigable guess list
+│   └── EndlessSummary.tsx   # End-of-session stats and restart
 ├── hooks/
 │   ├── useSpotifyAuth.ts    # PKCE OAuth lifecycle + token provider
-│   ├── usePlayer.ts         # Spotify Web Playback SDK wrapper
-│   └── useGameLogic.ts      # Game state machine, track selection, scoring
+│   ├── usePlayer.ts         # Spotify Web Playback SDK wrapper (REST transport)
+│   └── useGameLogic.ts      # Game state machine, pool cycling, scoring
 ├── lib/
-│   ├── normalizer.ts        # Title cleanup (remasters, feat., punctuation)
-│   └── matching.ts          # fuse.js-based fuzzy scoring
+│   ├── backoff.ts           # Retryable-error detection + exponential backoff
+│   ├── constants.ts         # Clue timing, scoring, reveal delay
+│   └── cn.ts                # clsx + tailwind-merge helper
 └── types/
     └── index.ts             # Shared types (Track, RoundResult, GamePhase)
 ```

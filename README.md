@@ -1,19 +1,20 @@
 # Spotify Guess Game
 
-A single-player music guessing game that streams real Spotify tracks in the browser. Log in with your Spotify account, pick a playlist, and name the songs from short audio snippets.
+A single-player music guessing game that streams real Spotify tracks in the browser. Log in with your Spotify account, pick a playlist, and name the songs as they play.
 
 ## Features
 
 - **Pure client-side PKCE OAuth** — no backend required (uses `@spotify/web-api-ts-sdk`)
 - **In-browser streaming** via the Spotify Web Playback SDK (requires a **Spotify Premium** account)
-- **10 random tracks** selected from any of your playlists (or paste a playlist URL)
-- **8-second snippets** at random timestamps with auto-pause
-- **Smart title normalization** that strips remaster tags, "feat." credits, and punctuation so official metadata clutter never breaks a correct answer
-- **Fuzzy matching** (fuse.js) that gives partial credit for typos and partial guesses:
-  - Perfect match: **+3**
-  - Close match (≥80% similarity): **+2**
-  - Partial match (≥50%): **+1**
-- **Score summary** at the end with per-round results and replay
+- **Endless play** — the game shuffles your playlist and cycles through every track; a **Quit** button ends the session with a summary
+- **Looping playback** — each track plays (looping) until you guess it or give up. No time-outs
+- **Progressive clues** — nothing at first, then:
+  - Artist at **10s**
+  - Album art at **20s**
+  - Album name at **30s**
+- **Speed-based scoring** — guessing instantly is worth **10 points** and decays by 1 point per second (min 1); giving up scores 0
+- **Fuzzy song picker** — search the playlist's tracks (fuse.js) and pick your guess from the list; wrong picks are flagged and you keep guessing
+- **Score summary** at the end with total score, correct/gave-up counts, and round stats
 
 ## Getting Started
 
@@ -48,8 +49,19 @@ Open `http://127.0.0.1:5173` (match the loopback IP you registered — not `loca
 > **Important:** You must browse to the _exact_ origin you registered. The app builds
 > its redirect URI from `window.location.origin`, so accessing the app via
 > `http://localhost:5173` while you registered `http://127.0.0.1:5173` will fail
-> with `redirect_uri: Not matching configuration`. Loopback IPs (127.0.0.1 / ::1)
+> with `redirect_uri: Not matching configuration`. Loopback IPs (127.0.0.1)
 > are the only ones allowed over HTTP; any other host requires HTTPS.
+>
+> The dashboard entry must also have **no trailing slash**: `window.location.origin`
+> is always `http://127.0.0.1:5173`, so registering `http://127.0.0.1:5173/` will not
+> match. Spotify compares the two strings character-for-character.
+
+> **Note (February 2026 API migration):** Spotify moved playlist items from
+> `GET /playlists/{id}/tracks` to `GET /playlists/{id}/items`; the old route now
+> returns `403 Forbidden` for Development Mode apps. The published SDK (1.2.0)
+> still calls the old route, so the app requests `/items` directly. The new route
+> also only returns playlists you **own or collaborate on**, so pasting someone
+> else's public playlist will return `403`.
 
 ## Architecture
 
@@ -74,7 +86,7 @@ src/
 ## Scopes Requested
 
 - `streaming` — Web Playback SDK audio streaming
-- `user-read-email`, `user-read-private` — profile access
+- `user-modify-playback-state` — start/pause/seek playback (required since the Web Playback SDK moved transport control to the Connect Web API)
 - `playlist-read-private`, `playlist-read-collaborative` — read your playlists
 
 ## Scripts

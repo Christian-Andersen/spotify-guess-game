@@ -1,4 +1,4 @@
-import { LogOut, Music2, ArrowRight, ListMusic, Loader2, Search } from "lucide-react";
+import { LogOut, Music2, ArrowRight, ListMusic, Loader2, Search, CircleAlert } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
 import type { Playlist } from "../types";
@@ -12,6 +12,7 @@ interface PlaylistPickerProps {
   retryCountdown: number;
   retryAttempt: number;
   playlistError: string | null;
+  startError: string | null;
   onFetchPlaylists: () => void;
   onManualRetry: () => void;
   onStartGame: (playlistId: string) => void;
@@ -25,6 +26,7 @@ export function PlaylistPicker({
   retryCountdown,
   retryAttempt,
   playlistError,
+  startError,
   onFetchPlaylists,
   onManualRetry,
   onStartGame,
@@ -92,6 +94,13 @@ export function PlaylistPicker({
             Pick a playlist to test your music knowledge. 10 random tracks will be selected.
           </p>
         </div>
+
+        {startError && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <CircleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <p>{startError}</p>
+          </div>
+        )}
 
         <div className="mb-6">
           <button

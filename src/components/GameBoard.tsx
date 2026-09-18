@@ -1,83 +1,57 @@
-import { Play, SkipForward, Loader2, Volume2, VolumeX } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Flag, Loader2, Music2, Volume2, VolumeX, X } from "lucide-react";
+import { useState } from "react";
 
-import type { Track } from "../types";
+import type { RoundResult, Track } from "../types";
 
 import { cn } from "../lib/cn";
+import { ALBUM_ART_CLUE_AT_S, ALBUM_NAME_CLUE_AT_S, ARTIST_CLUE_AT_S } from "../lib/constants";
+import { SongPicker } from "./SongPicker";
 
 interface GameBoardProps {
-  currentTrack: Track;
-  currentRoundIndex: number;
-  roundsTotal: number;
+  pool: Track[];
+  currentTrack: Track | null;
+  roundNumber: number;
   totalScore: number;
-  snippetDuration: number;
-  phase: "loading" | "playing" | "guessing" | "revealing";
-  onPlaySnippet: () => void;
-  onSubmitGuess: (guess: string) => void;
-  onNextRound: () => void;
-  onSetVolume: (volume: number) => void;
-  lastGuess?: string;
-  lastPoints?: number;
-  lastSimilarity?: number;
+  elapsed: number;
+  wrongPicks: string[];
+  phase: "loading" | "playing" | "revealed";
+  lastResult?: RoundResult;
   isPlayerReady: boolean;
+  positionMs: number | null;
+  durationMs: number | null;
+  onPickTrack: (track: Track) => void;
+  onGiveUp: () => void;
+  onQuit: () => void;
+  onSetVolume: (volume: number) => void;
 }
 
 export function GameBoard({
+  pool,
   currentTrack,
-  currentRoundIndex,
-  roundsTotal,
+  roundNumber,
   totalScore,
-  snippetDuration,
+  elapsed,
+  wrongPicks,
   phase,
-  onPlaySnippet,
-  onSubmitGuess,
-  onNextRound,
-  onSetVolume,
-  lastGuess,
-  lastPoints,
-  lastSimilarity,
+  lastResult,
   isPlayerReady,
+  positionMs,
+  durationMs,
+  onPickTrack,
+  onGiveUp,
+  onQuit,
+  onSetVolume,
 }: GameBoardProps) {
-  const [guess, setGuess] = useState("");
-  const [timer, setTimer] = useState(snippetDuration);
   const [muted, setMuted] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Focus input when guessing
-  useEffect(() => {
-    if (phase === "guessing") {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [phase]);
-
-  // Countdown timer
-  useEffect(() => {
-    if (phase === "playing") {
-      timerRef.current = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-              timerRef.current = null;
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [phase]);
+  const durationSec = durationMs ? durationMs / 1000 : 0;
+  const songProgress =
+    durationSec > 0 ? Math.min(100, ((positionMs ?? 0) / durationSec / 1000) * 100) : 0;
+  const clueTicks =
+    durationSec > 0
+      ? [ARTIST_CLUE_AT_S, ALBUM_ART_CLUE_AT_S, ALBUM_NAME_CLUE_AT_S].filter(
+          (t) => t <= durationSec,
+        )
+      : [];
 
   const toggleMute = () => {
     const nextMuted = !muted;
@@ -85,204 +59,151 @@ export function GameBoard({
     onSetVolume(nextMuted ? 0 : 0.5);
   };
 
-  const handleSubmit = () => {
-    const trimmed = guess.trim();
-    if (!trimmed) return;
-    onSubmitGuess(trimmed);
-  };
-
-  const progress =
-    phase === "playing"
-      ? ((snippetDuration - timer) / snippetDuration) * 100
-      : phase === "revealing"
-        ? 100
-        : 0;
-
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-lg space-y-8">
+    <div className="flex min-h-screen flex-col items-center px-4 py-8">
+      <div className="flex w-full max-w-lg flex-1 flex-col gap-6">
         {/* Header */}
         <div className="flex items-center justify-between text-sm text-neutral-400">
           <span>
-            Round <span className="font-bold text-white">{currentRoundIndex + 1}</span>/
-            {roundsTotal}
+            Round <span className="font-bold text-white">{roundNumber}</span>
           </span>
-          <span>
-            Score: <span className="font-bold text-green-400">{totalScore}</span>
-          </span>
-        </div>
-
-        {/* Album Art */}
-        <div className="flex justify-center">
-          <div className="relative">
-            <div
-              className={cn(
-                "h-64 w-64 overflow-hidden rounded-2xl shadow-2xl transition-all duration-500",
-                phase === "guessing" && "scale-105 blur-xl",
-                phase === "revealing" && "scale-100 blur-none",
-              )}
-            >
-              {currentTrack.albumArt ? (
-                <img
-                  src={currentTrack.albumArt}
-                  alt={currentTrack.album}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-neutral-800">
-                  <span className="text-6xl">?</span>
-                </div>
-              )}
-            </div>
-            {phase === "guessing" && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-6xl">?</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
-            <div
-              className="h-full rounded-full bg-green-500 transition-all duration-1000 ease-linear"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-neutral-500">
+          <div className="flex items-center gap-2 text-sm text-neutral-400">
             <span>
-              {phase === "playing" ? `-${timer}s` : phase === "guessing" ? "Time's up!" : ""}
+              Score: <span className="font-bold text-green-400">{totalScore}</span>
             </span>
-            <span>{snippetDuration}s snippet</span>
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white"
+              aria-label={muted ? "Unmute" : "Mute"}
+            >
+              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={onQuit}
+              className="flex items-center gap-1.5 rounded-lg bg-neutral-800 px-3 py-1.5 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+              Quit
+            </button>
           </div>
         </div>
 
-        {/* Controls */}
-        {phase === "loading" && (
-          <div className="flex flex-col items-center gap-4">
+        {phase === "loading" || !currentTrack ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-24">
             <Loader2 className="h-10 w-10 animate-spin text-green-500" />
             <p className="text-neutral-400">Loading game...</p>
           </div>
-        )}
-
-        {phase === "playing" && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onPlaySnippet}
-                disabled={!isPlayerReady}
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-black transition-all hover:bg-green-400 hover:shadow-lg hover:shadow-green-500/25 active:scale-95 disabled:opacity-40"
-              >
-                <Play className="ml-0.5 h-7 w-7" fill="currentColor" />
-              </button>
-              <button
-                type="button"
-                onClick={toggleMute}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white"
-              >
-                {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-              </button>
+        ) : (
+          <>
+            {/* Clue area */}
+            <div className="flex min-h-72 flex-col items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-900/40 p-6">
+              {phase === "revealed" && lastResult ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  {lastResult.correct ? (
+                    <>
+                      <p className="text-5xl font-black text-green-400">+{lastResult.points}</p>
+                      <p className="text-lg font-semibold text-white">Correct!</p>
+                      <p className="text-sm text-neutral-500">
+                        {currentTrack.name} &middot; {currentTrack.artists}
+                      </p>
+                      <p className="text-xs text-neutral-600">
+                        guessed in {lastResult.elapsedSeconds}s
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-neutral-400">It was...</p>
+                      <p className="text-2xl font-bold text-white">{currentTrack.name}</p>
+                      <p className="text-sm text-neutral-500">
+                        {currentTrack.artists} &middot; {currentTrack.album}
+                      </p>
+                      <p className="text-xs text-neutral-600">Next round...</p>
+                    </>
+                  )}
+                </div>
+              ) : elapsed < ARTIST_CLUE_AT_S ? (
+                <div className="text-center">
+                  <Music2 className="mx-auto h-12 w-12 text-neutral-700" />
+                  <p className="mt-3 text-neutral-500">Listen...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <p className="text-2xl font-bold text-white">{currentTrack.artists}</p>
+                  {elapsed >= ALBUM_ART_CLUE_AT_S && currentTrack.albumArt && (
+                    <img
+                      src={currentTrack.albumArt}
+                      alt={currentTrack.album}
+                      className="h-44 w-44 rounded-xl object-cover shadow-lg"
+                    />
+                  )}
+                  {elapsed >= ALBUM_NAME_CLUE_AT_S && (
+                    <p className="text-sm text-neutral-400 italic">{currentTrack.album}</p>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Song progress */}
+            <div className="space-y-1">
+              <div className="relative h-1.5 overflow-hidden rounded-full bg-neutral-800">
+                <div
+                  className="h-full rounded-full bg-green-500 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${songProgress}%` }}
+                />
+                {clueTicks.map((t) => (
+                  <div
+                    key={t}
+                    className="absolute inset-y-0 w-px bg-neutral-500/80"
+                    style={{ left: `${(t / durationSec) * 100}%` }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-neutral-500">
+                <span>{elapsed}s listening</span>
+              </div>
+              <p className="text-right text-[10px] text-neutral-600">
+                Artist @{ARTIST_CLUE_AT_S}s · Art @{ALBUM_ART_CLUE_AT_S}s · Album @
+                {ALBUM_NAME_CLUE_AT_S}s
+              </p>
+            </div>
+
             {!isPlayerReady && (
-              <p className="text-xs text-yellow-500">
+              <p className="text-center text-xs text-yellow-500">
                 Connecting to Spotify... Make sure Spotify is open.
               </p>
             )}
-          </div>
-        )}
 
-        {phase === "guessing" && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <p className="text-lg font-semibold">What song is this?</p>
-              <p className="text-sm text-neutral-500">Type your best guess and press Enter</p>
-            </div>
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={guess}
-                onChange={(e) => setGuess(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                placeholder="Enter song name..."
-                className="flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-4 text-lg text-white placeholder-neutral-500 transition-colors outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
-              />
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!guess.trim()}
-                className="rounded-xl bg-green-500 px-6 py-4 font-bold text-black transition-all hover:bg-green-400 disabled:opacity-40"
-              >
-                Guess
-              </button>
-            </div>
-          </div>
-        )}
-
-        {phase === "revealing" && (
-          <div className="space-y-4 text-center">
-            <div className="space-y-1">
-              <p className="text-sm text-neutral-400">The answer was...</p>
-              <p className="text-2xl font-bold text-green-400">{currentTrack.name}</p>
-              <p className="text-sm text-neutral-500">
-                {currentTrack.artists} &middot; {currentTrack.album}
-              </p>
-            </div>
-
-            {lastGuess !== undefined && (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
-                <p className="text-sm text-neutral-400">
-                  Your guess: <span className="text-white">{lastGuess}</span>
-                </p>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  {lastPoints !== undefined && (
-                    <span
-                      className={cn(
-                        "rounded-full px-3 py-1 text-sm font-bold",
-                        lastPoints === 3
-                          ? "bg-green-500/20 text-green-400"
-                          : lastPoints === 2
-                            ? "bg-blue-500/20 text-blue-400"
-                            : lastPoints === 1
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : "bg-red-500/20 text-red-400",
-                      )}
-                    >
-                      {lastPoints === 3
-                        ? "Perfect! +3"
-                        : lastPoints === 2
-                          ? "Close! +2"
-                          : lastPoints === 1
-                            ? "Close enough +1"
-                            : "Wrong! +0"}
-                    </span>
-                  )}
-                  {lastSimilarity !== undefined && lastSimilarity < 1 && (
-                    <span className="text-xs text-neutral-500">
-                      {Math.round(lastSimilarity * 100)}% match
-                    </span>
-                  )}
-                </div>
+            {/* Wrong picks */}
+            {wrongPicks.length > 0 && phase !== "revealed" && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-neutral-500">Not it:</span>
+                {wrongPicks.map((name, i) => (
+                  <span
+                    key={`${name}-${i}`}
+                    className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-red-400"
+                  >
+                    {name}
+                  </span>
+                ))}
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={onNextRound}
-              className="mx-auto flex items-center gap-2 rounded-xl bg-green-500 px-8 py-4 font-bold text-black transition-all hover:bg-green-400 active:scale-95"
-            >
-              {currentRoundIndex + 1 >= roundsTotal ? (
-                "See Results"
-              ) : (
-                <>
-                  Next Round
-                  <SkipForward className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </div>
+            {/* Guess box + give up */}
+            <div className={cn("space-y-3", phase === "revealed" && "opacity-40")}>
+              <SongPicker pool={pool} onPick={onPickTrack} />
+              <button
+                type="button"
+                onClick={onGiveUp}
+                disabled={phase !== "playing"}
+                className="mx-auto flex items-center gap-2 rounded-xl border border-neutral-700 px-6 py-3 text-neutral-400 transition-colors hover:border-red-500/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Flag className="h-4 w-4" />
+                Give Up
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

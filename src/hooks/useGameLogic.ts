@@ -1,61 +1,131 @@
-import type { SpotifyApi } from "@spotify/web-api-ts-sdk";
+import type { SpotifyApi, SimplifiedPlaylist } from "@spotify/web-api-ts-sdk";
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
 import type { Track, RoundResult, GamePhase, Playlist } from "../types";
 
 import { createExponentialBackoff, isRetryableError, sleep } from "../lib/backoff";
-import { computeMatchScore, getRoundPoints, MAX_POINTS_PER_ROUND } from "../lib/matching";
+import { MAX_ROUND_POINTS, MIN_ROUND_POINTS, REVEAL_DELAY_MS } from "../lib/constants";
 
-const ROUNDS_PER_GAME = 10;
-const SNIPPET_DURATION_S = 8;
-const BUFFER_S = 15;
+const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
+
+// Spotify's Feb 2026 migration moved playlist items from
+// `GET /playlists/{id}/tracks` to `GET /playlists/{id}/items`; the old path
+// now returns 403 for Development Mode apps. The published SDK (1.2.0) still
+// calls the old path, so we hit the new one directly.
+interface PlaylistTrackObject {
+  id: string;
+  name: string;
+  type: string;
+  uri: string;
+  duration_ms: number;
+  artists: Array<{ name: string }>;
+  album: { name: string; images?: Array<{ url: string }> };
+}
+
+interface PlaylistItemsPage {
+  items: Array<{
+    item?: PlaylistTrackObject | null;
+    track?: PlaylistTrackObject | null;
+  }>;
+  next: string | null;
+}
 
 interface UseGameLogicParams {
   sdk: SpotifyApi;
+  fetchAccessToken: () => Promise<string | null>;
   play: (uris: string[], positionMs: number) => Promise<void>;
   pause: () => Promise<void>;
+  setRepeat: (state: "track" | "off") => Promise<void>;
   isPlayerReady: boolean;
 }
 
-export function useGameLogic({ sdk, play, pause, isPlayerReady }: UseGameLogicParams) {
+function statusOf(error: unknown): number | undefined {
+  if (error && typeof error === "object") {
+    const status = (error as { status?: unknown }).status;
+    if (typeof status === "number") return status;
+  }
+  return undefined;
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+export function useGameLogic({
+  sdk,
+  fetchAccessToken,
+  play,
+  pause,
+  setRepeat,
+  isPlayerReady,
+}: UseGameLogicParams) {
   const [phase, setPhase] = useState<GamePhase>("playlist");
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
+  // The full, shuffled track pool of the chosen playlist (endless).
+  const [pool, setPool] = useState<Track[]>([]);
+  const [roundIndex, setRoundIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [wrongPicks, setWrongPicks] = useState<string[]>([]);
   const [results, setResults] = useState<RoundResult[]>([]);
   const [totalScore, setTotalScore] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentGuess, setCurrentGuess] = useState("");
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const retryAttemptRef = useRef(0);
   const [playlistError, setPlaylistError] = useState<string | null>(null);
-  const autoPauseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [startGameError, setStartGameError] = useState<string | null>(null);
   const playlistBackoffRef = useRef(createExponentialBackoff());
+  // Cache our own user ID: `GET /me` is unnecessary on every refresh/retry.
+  const currentUserIdRef = useRef<string | null>(null);
+  // Guards against starting playback for the same track twice.
+  const playedRoundRef = useRef<string | null>(null);
 
-  const clearAutoPause = useCallback(() => {
-    if (autoPauseTimer.current) {
-      clearTimeout(autoPauseTimer.current);
-      autoPauseTimer.current = null;
-    }
-  }, []);
+  const currentTrack = pool[roundIndex] ?? null;
 
+  // Fetch playlists for the picker (unchanged flow).
   const fetchPlaylists = useCallback(async () => {
     setIsLoading(true);
 
     try {
+      let myId = currentUserIdRef.current;
+      if (!myId) {
+        const me = await sdk.currentUser.profile();
+        myId = me.id;
+        currentUserIdRef.current = myId;
+      }
+
       const response = await sdk.currentUser.playlists.playlists(50);
 
-      const mapped: Playlist[] = response.items
-        .filter((pl) => pl.tracks && pl.tracks.total > 0)
+      // Feb 2026 migration: the `tracks` field on playlist objects was renamed
+      // to `items`, and `items` is only present on playlists the current user
+      // owns or collaborates on (per Spotify's own access model). The legacy
+      // `tracks` field may still be returned for followed playlists we cannot
+      // fetch, so it must not be enough on its own to show a playlist.
+      type LivePlaylist = SimplifiedPlaylist & { items?: { total?: number } | null };
+
+      const playlistsResponse = response.items as LivePlaylist[];
+
+      const mapped: Playlist[] = playlistsResponse
+        // Only playlists we own are guaranteed fetchable via `/items`; the
+        // migration guide's "items only on owned/collaborated" claim doesn't
+        // hold for `/me/playlists`, so anything else may 403 when played.
+        .filter((pl) => {
+          const count = pl.items?.total ?? pl.tracks?.total ?? 0;
+          return count > 0 && pl.owner.id === myId;
+        })
         .map((pl) => ({
           id: pl.id,
           name: pl.name,
           description: pl.description ?? "",
           image: pl.images?.[0]?.url ?? "",
-          trackCount: pl.tracks?.total ?? 0,
+          trackCount: pl.items?.total ?? pl.tracks?.total ?? 0,
           owner: pl.owner.display_name ?? "Unknown",
         }));
 
@@ -109,168 +179,221 @@ export function useGameLogic({ sdk, play, pause, isPlayerReady }: UseGameLogicPa
       const backoff = createExponentialBackoff({ baseDelayMs: 1000 });
       for (;;) {
         try {
-          let allTracks: Track[] = [];
+          const token = await fetchAccessToken();
+          if (!token) throw new Error("Not authenticated with Spotify");
+
+          const allTracks: Track[] = [];
           let offset = 0;
           const limit = 50;
           while (true) {
-            const response = await sdk.playlists.getPlaylistItems(
-              playlistId,
-              undefined,
-              undefined,
-              limit,
-              offset,
-            );
+            const url =
+              `${SPOTIFY_API_BASE}/playlists/${encodeURIComponent(playlistId)}/items` +
+              `?limit=${limit}&offset=${offset}`;
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
 
-            for (const item of response.items) {
-              if (item.track && "uri" in item.track && item.track.type === "track") {
-                const t = item.track;
+            if (!res.ok) {
+              const body = await res.text();
+              const error = new Error(
+                `Playlist items request failed: ${res.status} ${res.statusText} ${body}`,
+              ) as Error & { status: number };
+              error.status = res.status;
+              throw error;
+            }
+
+            const page = (await res.json()) as PlaylistItemsPage;
+
+            for (const entry of page.items) {
+              // `item` is the new key; `track` is kept for backward compatibility.
+              const track = entry.item ?? entry.track;
+              if (track && track.type === "track" && track.uri) {
                 allTracks.push({
-                  id: t.id,
-                  name: t.name,
-                  artists: t.artists.map((a) => a.name).join(", "),
-                  album: t.album.name,
-                  albumArt: t.album.images?.[0]?.url ?? "",
-                  duration_ms: t.duration_ms,
-                  uri: t.uri,
+                  id: track.id,
+                  name: track.name,
+                  artists: track.artists.map((a) => a.name).join(", "),
+                  album: track.album.name,
+                  albumArt: track.album.images?.[0]?.url ?? "",
+                  duration_ms: track.duration_ms,
+                  uri: track.uri,
                 });
               }
             }
 
             offset += limit;
-            if (response.items.length < limit || !response.next) break;
+            if (page.items.length < limit || !page.next) break;
           }
 
           return allTracks;
         } catch (error) {
           if (!isRetryableError(error)) {
-            return [];
+            throw error;
           }
           const waitMs = backoff.nextDelayMs(error);
           await sleep(waitMs);
         }
       }
     },
-    [sdk],
+    [fetchAccessToken],
   );
 
   const startGame = useCallback(
     async (playlistId: string) => {
       setPhase("loading");
-      const allTracks = await fetchPlaylistTracks(playlistId);
-      if (allTracks.length === 0) {
+      setStartGameError(null);
+      try {
+        const allTracks = await fetchPlaylistTracks(playlistId);
+        if (allTracks.length === 0) {
+          setStartGameError("That playlist has no playable tracks. Try another one.");
+          setPhase("playlist");
+          return;
+        }
+
+        playedRoundRef.current = null;
+        setPool(shuffle(allTracks));
+        setRoundIndex(0);
+        setElapsed(0);
+        setWrongPicks([]);
+        setResults([]);
+        setTotalScore(0);
+        setPhase("playing");
+      } catch (error) {
+        if (statusOf(error) === 403) {
+          setStartGameError(
+            "Spotify only lets you load playlists you own or collaborate on via the API.",
+          );
+        } else {
+          setStartGameError("Could not load that playlist. Please try another.");
+        }
         setPhase("playlist");
-        return;
       }
-
-      const shuffled = [...allTracks].sort(() => Math.random() - 0.5);
-      const selected = shuffled.slice(0, Math.min(ROUNDS_PER_GAME, shuffled.length));
-
-      setTracks(selected);
-      setCurrentRoundIndex(0);
-      setResults([]);
-      setTotalScore(0);
-      setCurrentGuess("");
-      setPhase("playing");
     },
     [fetchPlaylistTracks],
   );
 
-  const playSnippet = useCallback(async () => {
-    if (!isPlayerReady || tracks.length === 0) return;
+  // Start playback once the player is ready; the track loops until answered.
+  useEffect(() => {
+    if (phase !== "playing" || !isPlayerReady || !currentTrack) return;
+    if (playedRoundRef.current === currentTrack.id) return;
+    playedRoundRef.current = currentTrack.id;
+    setElapsed(0);
+    setWrongPicks([]);
 
-    const track = tracks[currentRoundIndex];
-    if (!track) return;
+    // Playback starts at 0:00 so the reveal notches on the progress bar line
+    // up with real song time.
+    void play([currentTrack.uri], 0);
+    void setRepeat("track");
+  }, [phase, isPlayerReady, currentTrack, play, setRepeat]);
 
-    const minPos = BUFFER_S * 1000;
-    const maxPos = Math.max(
-      minPos,
-      track.duration_ms - SNIPPET_DURATION_S * 1000 - BUFFER_S * 1000,
-    );
-    const randomPos =
-      maxPos <= minPos ? minPos : Math.floor(Math.random() * (maxPos - minPos) + minPos);
+  // Elapsed seconds drive the clue reveals and speed-based scoring.
+  useEffect(() => {
+    if (phase !== "playing" || !isPlayerReady) return;
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase, isPlayerReady]);
 
-    setPhase("playing");
-    await play([track.uri], randomPos);
+  const onPickTrack = useCallback(
+    (picked: Track) => {
+      if (phase !== "playing" || !currentTrack) return;
 
-    clearAutoPause();
-    autoPauseTimer.current = setTimeout(async () => {
-      await pause();
-      setPhase("guessing");
-    }, SNIPPET_DURATION_S * 1000);
-  }, [isPlayerReady, tracks, currentRoundIndex, play, pause, clearAutoPause]);
-
-  const submitGuess = useCallback(
-    (guess: string) => {
-      if (tracks.length === 0) return;
-
-      clearAutoPause();
-      const track = tracks[currentRoundIndex];
-      const { similarity, exact } = computeMatchScore(guess, track.name);
-      const points = getRoundPoints(similarity, exact);
-
-      const result: RoundResult = {
-        track,
-        guess,
-        points,
-        similarity,
-        wasExact: exact,
-      };
-
-      setResults((prev) => [...prev, result]);
-      setTotalScore((prev) => prev + points);
-      setPhase("revealing");
+      if (picked.id === currentTrack.id) {
+        const points = Math.max(MIN_ROUND_POINTS, MAX_ROUND_POINTS - elapsed);
+        const result: RoundResult = {
+          track: currentTrack,
+          points,
+          correct: true,
+          elapsedSeconds: elapsed,
+        };
+        setResults((prev) => [...prev, result]);
+        setTotalScore((prev) => prev + points);
+        void pause();
+        setPhase("revealed");
+      } else {
+        setWrongPicks((prev) => [...prev.slice(-2), picked.name]);
+      }
     },
-    [tracks, currentRoundIndex, clearAutoPause],
+    [phase, currentTrack, elapsed, pause],
   );
 
-  const nextRound = useCallback(() => {
-    if (currentRoundIndex + 1 >= tracks.length) {
-      setPhase("score");
-    } else {
-      setCurrentRoundIndex((prev) => prev + 1);
-      setCurrentGuess("");
-      setPhase("playing");
-    }
-  }, [currentRoundIndex, tracks.length]);
+  const giveUp = useCallback(() => {
+    if (phase !== "playing" || !currentTrack) return;
+    const result: RoundResult = {
+      track: currentTrack,
+      points: 0,
+      correct: false,
+      elapsedSeconds: elapsed,
+    };
+    setResults((prev) => [...prev, result]);
+    void pause();
+    setPhase("revealed");
+  }, [phase, currentTrack, elapsed, pause]);
 
-  const resetGame = useCallback(() => {
-    clearAutoPause();
-    setPhase("playlist");
-    setTracks([]);
-    setCurrentRoundIndex(0);
+  const advanceRound = useCallback(() => {
+    playedRoundRef.current = null;
+    setElapsed(0);
+    setWrongPicks([]);
+    if (roundIndex + 1 >= pool.length) {
+      // Endless: the pool is exhausted — reshuffle and loop back around.
+      setPool((p) => shuffle(p));
+      setRoundIndex(0);
+    } else {
+      setRoundIndex((i) => i + 1);
+    }
+    setPhase("playing");
+  }, [roundIndex, pool.length]);
+
+  // Auto-advance after the answer is revealed.
+  useEffect(() => {
+    if (phase !== "revealed") return;
+    const t = setTimeout(() => advanceRound(), REVEAL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [phase, advanceRound]);
+
+  const quitGame = useCallback(() => {
+    playedRoundRef.current = null;
+    void pause();
+    void setRepeat("off");
+    setElapsed(0);
+    setWrongPicks([]);
+    setPhase("summary");
+  }, [pause, setRepeat]);
+
+  const newGame = useCallback(() => {
+    playedRoundRef.current = null;
+    void pause();
+    void setRepeat("off");
+    setPool([]);
+    setRoundIndex(0);
+    setElapsed(0);
+    setWrongPicks([]);
     setResults([]);
     setTotalScore(0);
-    setCurrentGuess("");
-  }, [clearAutoPause]);
+    setStartGameError(null);
+    setPhase("playlist");
+  }, [pause, setRepeat]);
 
-  const currentTrack = tracks[currentRoundIndex] ?? null;
-  const maxPossibleScore = tracks.length * MAX_POINTS_PER_ROUND;
-  const roundsTotal = tracks.length;
+  const roundNumber = results.length + 1;
 
   return {
     phase,
     playlists,
-    tracks,
-    currentRoundIndex,
+    pool,
     currentTrack,
+    roundNumber,
     results,
     totalScore,
-    maxPossibleScore,
-    roundsTotal,
+    elapsed,
+    wrongPicks,
     isLoading,
-    currentGuess,
-    setCurrentGuess,
-    snippetDuration: SNIPPET_DURATION_S,
+    isRetrying,
     retryCountdown,
     retryAttempt,
-    isRetrying,
     playlistError,
+    startGameError,
     fetchPlaylists,
     retryPlaylists,
     startGame,
-    playSnippet,
-    submitGuess,
-    nextRound,
-    resetGame,
+    onPickTrack,
+    giveUp,
+    quitGame,
+    newGame,
   };
 }

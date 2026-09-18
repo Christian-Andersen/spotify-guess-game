@@ -1,9 +1,9 @@
 import type { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 import { AuthOverlay } from "./components/AuthOverlay";
+import { EndlessSummary } from "./components/EndlessSummary";
 import { GameBoard } from "./components/GameBoard";
 import { PlaylistPicker } from "./components/PlaylistPicker";
-import { ScoreCard } from "./components/ScoreCard";
 import { useGameLogic } from "./hooks/useGameLogic";
 import { usePlayer } from "./hooks/usePlayer";
 import { useSpotifyAuth } from "./hooks/useSpotifyAuth";
@@ -19,7 +19,10 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
     isReady: isPlayerReady,
     play,
     pause,
+    setRepeat,
     setVolume,
+    positionMs,
+    durationMs,
     error: playerError,
   } = usePlayer({
     getAccessToken: fetchAccessToken,
@@ -28,8 +31,10 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
 
   const game = useGameLogic({
     sdk,
+    fetchAccessToken,
     play,
     pause,
+    setRepeat,
     isPlayerReady,
   });
 
@@ -60,6 +65,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
         retryCountdown={game.retryCountdown}
         retryAttempt={game.retryAttempt}
         playlistError={game.playlistError}
+        startError={game.startGameError}
         onFetchPlaylists={game.fetchPlaylists}
         onManualRetry={game.retryPlaylists}
         onStartGame={game.startGame}
@@ -68,44 +74,38 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
     );
   }
 
-  if (game.phase === "score") {
+  if (game.phase === "summary") {
     return (
-      <ScoreCard
-        totalScore={game.totalScore}
-        maxPossibleScore={game.maxPossibleScore}
+      <EndlessSummary
         results={game.results}
-        onPlayAgain={game.resetGame}
+        totalScore={game.totalScore}
+        onNewGame={game.newGame}
       />
     );
   }
 
-  if (
-    game.currentTrack &&
-    (game.phase === "loading" ||
-      game.phase === "playing" ||
-      game.phase === "guessing" ||
-      game.phase === "revealing")
-  ) {
+  if (game.phase === "loading" || game.phase === "playing" || game.phase === "revealed") {
     const lastResult =
-      game.phase === "revealing" ? game.results[game.results.length - 1] : undefined;
+      game.phase === "revealed" ? game.results[game.results.length - 1] : undefined;
 
     return (
       <GameBoard
-        key={game.currentRoundIndex}
+        key={game.roundNumber}
+        pool={game.pool}
         currentTrack={game.currentTrack}
-        currentRoundIndex={game.currentRoundIndex}
-        roundsTotal={game.roundsTotal}
+        roundNumber={game.roundNumber}
         totalScore={game.totalScore}
-        snippetDuration={game.snippetDuration}
+        elapsed={game.elapsed}
+        wrongPicks={game.wrongPicks}
         phase={game.phase}
-        onPlaySnippet={game.playSnippet}
-        onSubmitGuess={game.submitGuess}
-        onNextRound={game.nextRound}
-        onSetVolume={setVolume}
-        lastGuess={lastResult?.guess}
-        lastPoints={lastResult?.points}
-        lastSimilarity={lastResult?.similarity}
+        lastResult={lastResult}
         isPlayerReady={isPlayerReady}
+        positionMs={positionMs}
+        durationMs={durationMs}
+        onPickTrack={game.onPickTrack}
+        onGiveUp={game.giveUp}
+        onQuit={game.quitGame}
+        onSetVolume={setVolume}
       />
     );
   }

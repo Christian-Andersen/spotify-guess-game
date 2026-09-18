@@ -6,8 +6,7 @@ const REDIRECT_URI = window.location.origin;
 
 const SCOPES = [
   "streaming",
-  "user-read-email",
-  "user-read-private",
+  "user-modify-playback-state",
   "playlist-read-private",
   "playlist-read-collaborative",
 ];

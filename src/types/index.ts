@@ -1,4 +1,4 @@
-export type GamePhase = "playlist" | "loading" | "playing" | "guessing" | "revealing" | "score";
+export type GamePhase = "playlist" | "loading" | "playing" | "revealed" | "summary";
 
 export interface Track {
   id: string;
@@ -12,10 +12,9 @@ export interface Track {
 
 export interface RoundResult {
   track: Track;
-  guess: string;
   points: number;
-  similarity: number;
-  wasExact: boolean;
+  correct: boolean;
+  elapsedSeconds: number;
 }
 
 export interface Playlist {

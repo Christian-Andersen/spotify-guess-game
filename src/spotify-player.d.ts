@@ -19,7 +19,8 @@ interface SpotifyPlayer {
     event: T,
     callback: SpotifyPlayerEventCallbacks[T],
   ): void;
-  play(options?: { uris?: string[]; position_ms?: number }): Promise<void>;
+  // Note: the current Web Playback SDK no longer exposes `play()` —
+  // starting playback is done via the Connect Web API (`PUT /me/player/play`).
   pause(): Promise<void>;
   resume(): Promise<void>;
   seek(position_ms: number): Promise<void>;

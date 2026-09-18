@@ -47,11 +47,11 @@ export function PlaylistPicker({
   const extractPlaylistId = (input: string): string | null => {
     const trimmed = input.trim();
     // Match Spotify playlist URL: https://open.spotify.com/playlist/{id}?...
-    const urlMatch = trimmed.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
-    if (urlMatch) return urlMatch[1];
+    const urlId = trimmed.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/)?.[1];
+    if (urlId) return urlId;
     // Match spotify:playlist:{id}
-    const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/);
-    if (uriMatch) return uriMatch[1];
+    const uriId = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/)?.[1];
+    if (uriId) return uriId;
     // Assume it's a raw ID (alphanumeric, ~22 chars)
     if (/^[a-zA-Z0-9]{20,}$/.test(trimmed)) return trimmed;
     return null;
@@ -91,7 +91,8 @@ export function PlaylistPicker({
         <div className="mb-8 space-y-2">
           <h2 className="text-2xl font-bold">Choose a Playlist</h2>
           <p className="text-neutral-400">
-            Pick a playlist to test your music knowledge. 10 random tracks will be selected.
+            Pick a playlist to test your music knowledge — the game shuffles it and keeps playing
+            until you call it quits.
           </p>
         </div>
 
@@ -106,6 +107,7 @@ export function PlaylistPicker({
           <button
             type="button"
             onClick={() => setShowManual(!showManual)}
+            aria-expanded={showManual}
             className="flex items-center gap-2 text-sm text-neutral-400 transition-colors hover:text-white"
           >
             <ListMusic className="h-4 w-4" />

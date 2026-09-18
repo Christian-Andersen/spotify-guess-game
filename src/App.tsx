@@ -1,11 +1,13 @@
 import type { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
+import { useState } from "react";
+
 import { AuthOverlay } from "./components/AuthOverlay";
 import { EndlessSummary } from "./components/EndlessSummary";
 import { GameBoard } from "./components/GameBoard";
 import { PlaylistPicker } from "./components/PlaylistPicker";
 import { useGameLogic } from "./hooks/useGameLogic";
-import { usePlayer } from "./hooks/usePlayer";
+import { usePlaybackPosition, usePlayer } from "./hooks/usePlayer";
 import { useSpotifyAuth } from "./hooks/useSpotifyAuth";
 
 interface GameAppProps {
@@ -21,13 +23,21 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
     pause,
     setRepeat,
     setVolume,
-    positionMs,
-    durationMs,
     error: playerError,
+    getPlayer,
   } = usePlayer({
     getAccessToken: fetchAccessToken,
     enabled: true,
   });
+
+  // Lifted above GameBoard (which is keyed by round and remounts each round)
+  // so muting survives round changes — the SDK volume must stay in sync.
+  const [muted, setMuted] = useState(false);
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    void setVolume(next ? 0 : 0.5);
+  };
 
   const game = useGameLogic({
     sdk,
@@ -36,6 +46,13 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
     pause,
     setRepeat,
     isPlayerReady,
+  });
+
+  // Poll the SDK for playback position only during an active round.
+  const { positionMs, durationMs } = usePlaybackPosition({
+    isPlayerReady,
+    active: game.phase === "playing",
+    getPlayer,
   });
 
   if (playerError) {
@@ -102,10 +119,11 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
         isPlayerReady={isPlayerReady}
         positionMs={positionMs}
         durationMs={durationMs}
+        muted={muted}
+        onToggleMute={toggleMute}
         onPickTrack={game.onPickTrack}
         onGiveUp={game.giveUp}
         onQuit={game.quitGame}
-        onSetVolume={setVolume}
       />
     );
   }

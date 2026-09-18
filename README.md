@@ -70,15 +70,17 @@ src/
 ├── components/
 │   ├── AuthOverlay.tsx      # Login screen with Spotify-branded entry
 │   ├── PlaylistPicker.tsx   # Grid of your playlists + URL/ID input
-│   ├── GameBoard.tsx        # Snippet player, timer, guess input, reveal
-│   └── ScoreCard.tsx        # Final score, grade, per-round recap
+│   ├── GameBoard.tsx        # Clue area, song progress, guess input, reveal
+│   ├── SongPicker.tsx       # Fuzzy search + keyboard-navigable guess list
+│   └── EndlessSummary.tsx   # End-of-session stats and restart
 ├── hooks/
 │   ├── useSpotifyAuth.ts    # PKCE OAuth lifecycle + token provider
-│   ├── usePlayer.ts         # Spotify Web Playback SDK wrapper
-│   └── useGameLogic.ts      # Game state machine, track selection, scoring
+│   ├── usePlayer.ts         # Spotify Web Playback SDK wrapper (REST transport)
+│   └── useGameLogic.ts      # Game state machine, pool cycling, scoring
 ├── lib/
-│   ├── normalizer.ts        # Title cleanup (remasters, feat., punctuation)
-│   └── matching.ts          # fuse.js-based fuzzy scoring
+│   ├── backoff.ts           # Retryable-error detection + exponential backoff
+│   ├── constants.ts         # Clue timing, scoring, reveal delay
+│   └── cn.ts                # clsx + tailwind-merge helper
 └── types/
     └── index.ts             # Shared types (Track, RoundResult, GamePhase)
 ```

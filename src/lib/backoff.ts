@@ -10,7 +10,7 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function extractStatus(err: unknown): number | undefined {
+export function extractStatus(err: unknown): number | undefined {
   if (err && typeof err === "object") {
     const status = (err as { status?: unknown }).status;
     if (typeof status === "number") return status;

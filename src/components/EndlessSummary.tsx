@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Clock, RotateCcw, Star, Target, Trophy, XCircle } from "lucide-react";
 
 import type { RoundResult } from "../types";
@@ -14,7 +16,7 @@ function StatCard({
   value,
   accent,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   accent?: string;

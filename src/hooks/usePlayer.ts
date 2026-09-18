@@ -10,8 +10,6 @@ interface UsePlayerOptions {
 export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [positionMs, setPositionMs] = useState<number | null>(null);
-  const [durationMs, setDurationMs] = useState<number | null>(null);
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
@@ -37,7 +35,11 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
         name: "Spotify Guess Game",
         getOAuthToken: (cb) => {
           getAccessToken().then((token) => {
-            if (token) cb(token);
+            if (token) {
+              cb(token);
+              return;
+            }
+            setError("Could not fetch a Spotify token. Log out and back in.");
           });
         },
         volume: 0.5,
@@ -51,12 +53,6 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
       player.addListener("not_ready", () => {
         deviceIdRef.current = null;
         setIsReady(false);
-      });
-
-      player.addListener("player_state_changed", (state) => {
-        if (!state) return;
-        setPositionMs(state.position);
-        setDurationMs(state.track_window.current_track.duration_ms ?? null);
       });
 
       player.addListener("initialization_error", ({ message }) => {
@@ -156,14 +152,43 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
     await playerRef.current.setVolume(volume);
   }, []);
 
-  // Poll the SDK for playback state: `player_state_changed` events don't
-  // fire reliably for position updates, so track the bar via getCurrentState.
+  const getPlayer = useCallback(() => playerRef.current, []);
+
+  return {
+    isReady,
+    play,
+    pause,
+    setRepeat,
+    setVolume,
+    getPlayer,
+    error,
+  };
+}
+
+/**
+ * Polls the Web Playback SDK for the current position/duration so the game
+ * can render a whole-song progress bar. `player_state_changed` events don't
+ * fire reliably for position updates, so we call `getCurrentState()` once a
+ * second — and only while a round is actively playing.
+ */
+export function usePlaybackPosition({
+  isPlayerReady,
+  active,
+  getPlayer,
+}: {
+  isPlayerReady: boolean;
+  active: boolean;
+  getPlayer: () => SpotifyPlayer | null;
+}): { positionMs: number | null; durationMs: number | null } {
+  const [positionMs, setPositionMs] = useState<number | null>(null);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
+
   useEffect(() => {
-    if (!isReady) return;
+    if (!isPlayerReady || !active) return;
 
     let disposed = false;
     const poll = async () => {
-      const player = playerRef.current;
+      const player = getPlayer();
       if (!player) return;
       try {
         const state = await player.getCurrentState();
@@ -181,16 +206,7 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
       disposed = true;
       clearInterval(id);
     };
-  }, [isReady]);
+  }, [isPlayerReady, active, getPlayer]);
 
-  return {
-    isReady,
-    play,
-    pause,
-    setRepeat,
-    setVolume,
-    positionMs,
-    durationMs,
-    error,
-  };
+  return { positionMs, durationMs };
 }

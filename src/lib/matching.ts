@@ -1,4 +1,5 @@
 import Fuse from "fuse.js";
+
 import { normalizeTitle } from "./normalizer";
 
 export function computeMatchScore(
@@ -17,10 +18,7 @@ export function computeMatchScore(
   }
 
   // Check if guess is a substring of the answer (or vice versa)
-  if (
-    normalizedAnswer.includes(normalizedGuess) ||
-    normalizedGuess.includes(normalizedAnswer)
-  ) {
+  if (normalizedAnswer.includes(normalizedGuess) || normalizedGuess.includes(normalizedAnswer)) {
     const shorter = Math.min(normalizedGuess.length, normalizedAnswer.length);
     const longer = Math.max(normalizedGuess.length, normalizedAnswer.length);
     return { similarity: shorter / longer, exact: false };
@@ -43,10 +41,7 @@ export function computeMatchScore(
   return { similarity: Math.max(0, similarity), exact: false };
 }
 
-export function getRoundPoints(
-  similarity: number,
-  exact: boolean,
-): number {
+export function getRoundPoints(similarity: number, exact: boolean): number {
   if (exact) return 3;
   if (similarity >= 0.8) return 2;
   if (similarity >= 0.5) return 1;

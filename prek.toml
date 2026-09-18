@@ -1,0 +1,23 @@
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "oxfmt"
+name = "oxfmt"
+language = "system"
+pass_filenames = false
+entry = "npm run fmt:check"
+
+[[repos.hooks]]
+id = "oxlint"
+name = "oxlint"
+language = "system"
+pass_filenames = false
+entry = "npm run lint"
+
+[[repos.hooks]]
+id = "tsc"
+name = "tsc"
+language = "system"
+pass_filenames = false
+entry = "npm run build"

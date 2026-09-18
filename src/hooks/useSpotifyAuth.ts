@@ -1,8 +1,5 @@
+import { SpotifyApi, AuthorizationCodeWithPKCEStrategy } from "@spotify/web-api-ts-sdk";
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  SpotifyApi,
-  AuthorizationCodeWithPKCEStrategy,
-} from "@spotify/web-api-ts-sdk";
 
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 const REDIRECT_URI = window.location.origin;
@@ -31,11 +28,7 @@ export function useSpotifyAuth() {
   useEffect(() => {
     if (!CLIENT_ID) return;
 
-    const auth = new AuthorizationCodeWithPKCEStrategy(
-      CLIENT_ID,
-      REDIRECT_URI,
-      SCOPES,
-    );
+    const auth = new AuthorizationCodeWithPKCEStrategy(CLIENT_ID, REDIRECT_URI, SCOPES);
     const internalSdk = new SpotifyApi(auth);
 
     internalSdk
@@ -51,10 +44,7 @@ export function useSpotifyAuth() {
       .catch((e: unknown) => {
         const err = e as Error;
         if (err?.message?.includes("No verifier found in cache")) {
-          console.warn(
-            "PKCE verifier consumed (StrictMode dev artifact):",
-            err.message,
-          );
+          console.warn("PKCE verifier consumed (StrictMode dev artifact):", err.message);
         } else {
           console.error("Spotify auth error:", e);
         }
@@ -70,16 +60,11 @@ export function useSpotifyAuth() {
       return;
     }
 
-    const auth = new AuthorizationCodeWithPKCEStrategy(
-      CLIENT_ID,
-      REDIRECT_URI,
-      SCOPES,
-    );
+    const auth = new AuthorizationCodeWithPKCEStrategy(CLIENT_ID, REDIRECT_URI, SCOPES);
     const internalSdk = new SpotifyApi(auth);
 
     try {
-      const { authenticated, accessToken: token } =
-        await internalSdk.authenticate();
+      const { authenticated, accessToken: token } = await internalSdk.authenticate();
       if (authenticated) {
         sdkRef.current = internalSdk;
         setSdk(internalSdk);

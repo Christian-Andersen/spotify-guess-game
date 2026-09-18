@@ -1,5 +1,9 @@
+set dotenv-load
+
+alias b := build
 alias c := check
 alias r := run
+alias ci := continuous_integration
 
 [private]
 default:
@@ -14,11 +18,16 @@ setup:
     @echo "Installing dependencies..."
     npm install
 
-# lint and build
+audit:
+    npm audit
+
 check:
-    npm run lint
+    prek run --all-files
+
+build:
     npm run build
 
-# dev mode
 run:
     npm run dev
+
+continuous_integration: audit check build

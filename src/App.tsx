@@ -1,11 +1,12 @@
-import { useSpotifyAuth } from "./hooks/useSpotifyAuth";
-import { usePlayer } from "./hooks/usePlayer";
-import { useGameLogic } from "./hooks/useGameLogic";
-import { AuthOverlay } from "./components/AuthOverlay";
-import { PlaylistPicker } from "./components/PlaylistPicker";
-import { GameBoard } from "./components/GameBoard";
-import { ScoreCard } from "./components/ScoreCard";
 import type { SpotifyApi } from "@spotify/web-api-ts-sdk";
+
+import { AuthOverlay } from "./components/AuthOverlay";
+import { GameBoard } from "./components/GameBoard";
+import { PlaylistPicker } from "./components/PlaylistPicker";
+import { ScoreCard } from "./components/ScoreCard";
+import { useGameLogic } from "./hooks/useGameLogic";
+import { usePlayer } from "./hooks/usePlayer";
+import { useSpotifyAuth } from "./hooks/useSpotifyAuth";
 
 interface GameAppProps {
   sdk: SpotifyApi;
@@ -35,9 +36,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-md space-y-4 text-center">
-          <p className="text-lg font-semibold text-red-400">
-            Playback Error
-          </p>
+          <p className="text-lg font-semibold text-red-400">Playback Error</p>
           <p className="text-neutral-400">{playerError}</p>
           <button
             type="button"
@@ -87,9 +86,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
       game.phase === "revealing")
   ) {
     const lastResult =
-      game.phase === "revealing"
-        ? game.results[game.results.length - 1]
-        : undefined;
+      game.phase === "revealing" ? game.results[game.results.length - 1] : undefined;
 
     return (
       <GameBoard
@@ -115,15 +112,8 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
 }
 
 export default function App() {
-  const {
-    sdk,
-    isAuthenticated,
-    login,
-    logout,
-    loading,
-    error,
-    fetchAccessToken,
-  } = useSpotifyAuth();
+  const { sdk, isAuthenticated, login, logout, loading, error, fetchAccessToken } =
+    useSpotifyAuth();
 
   if (loading) {
     return (
@@ -137,7 +127,5 @@ export default function App() {
     return <AuthOverlay onLogin={login} loading={false} error={error} />;
   }
 
-  return (
-    <GameApp sdk={sdk} onLogout={logout} fetchAccessToken={fetchAccessToken} />
-  );
+  return <GameApp sdk={sdk} onLogout={logout} fetchAccessToken={fetchAccessToken} />;
 }

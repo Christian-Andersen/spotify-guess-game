@@ -1,5 +1,7 @@
 import { RotateCcw, Trophy, Star, Music2 } from "lucide-react";
+
 import type { RoundResult } from "../types";
+
 import { cn } from "../lib/cn";
 
 interface ScoreCardProps {
@@ -21,12 +23,7 @@ function getGrade(percentage: number): {
   return { label: "Keep Trying", color: "text-red-400", emoji: "💪" };
 }
 
-export function ScoreCard({
-  totalScore,
-  maxPossibleScore,
-  results,
-  onPlayAgain,
-}: ScoreCardProps) {
+export function ScoreCard({ totalScore, maxPossibleScore, results, onPlayAgain }: ScoreCardProps) {
   const percentage = maxPossibleScore > 0 ? totalScore / maxPossibleScore : 0;
   const grade = getGrade(percentage);
   const exactCount = results.filter((r) => r.wasExact).length;
@@ -46,27 +43,21 @@ export function ScoreCard({
           <div className="mt-2 rounded-2xl border border-neutral-800 bg-neutral-900/50 px-8 py-6">
             <p className="text-6xl font-black text-white">
               {totalScore}
-              <span className="text-2xl text-neutral-500">
-                /{maxPossibleScore}
-              </span>
+              <span className="text-2xl text-neutral-500">/{maxPossibleScore}</span>
             </p>
             <div className="mt-2 flex items-center justify-center gap-4 text-sm text-neutral-400">
               <span className="flex items-center gap-1">
                 <Star className="h-3.5 w-3.5 text-yellow-400" />
                 {exactCount} perfect
               </span>
-              <span>
-                {Math.round(percentage * 100)}% accuracy
-              </span>
+              <span>{Math.round(percentage * 100)}% accuracy</span>
             </div>
           </div>
         </div>
 
         {/* Track Results */}
         <div className="mb-10 w-full space-y-2">
-          <h3 className="mb-4 text-lg font-semibold text-neutral-300">
-            Round Results
-          </h3>
+          <h3 className="mb-4 text-lg font-semibold text-neutral-300">Round Results</h3>
           {results.map((result, i) => (
             <div
               key={`${result.track.id}-${String(i)}`}
@@ -96,12 +87,8 @@ export function ScoreCard({
               )}
 
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-white">
-                  {result.track.name}
-                </p>
-                <p className="truncate text-sm text-neutral-500">
-                  {result.track.artists}
-                </p>
+                <p className="truncate font-medium text-white">{result.track.name}</p>
+                <p className="truncate text-sm text-neutral-500">{result.track.artists}</p>
               </div>
 
               <div className="flex-shrink-0 text-right">

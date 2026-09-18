@@ -1,12 +1,8 @@
+import { Play, SkipForward, Loader2, Volume2, VolumeX } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import {
-  Play,
-  SkipForward,
-  Loader2,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+
 import type { Track } from "../types";
+
 import { cn } from "../lib/cn";
 
 interface GameBoardProps {
@@ -100,11 +96,8 @@ export function GameBoard({
         {/* Header */}
         <div className="flex items-center justify-between text-sm text-neutral-400">
           <span>
-            Round{" "}
-            <span className="font-bold text-white">
-              {currentRoundIndex + 1}
-            </span>
-            /{roundsTotal}
+            Round <span className="font-bold text-white">{currentRoundIndex + 1}</span>/
+            {roundsTotal}
           </span>
           <span>
             Score: <span className="font-bold text-green-400">{totalScore}</span>
@@ -117,8 +110,8 @@ export function GameBoard({
             <div
               className={cn(
                 "h-64 w-64 overflow-hidden rounded-2xl shadow-2xl transition-all duration-500",
-                phase === "guessing" && "blur-xl scale-105",
-                phase === "revealing" && "blur-none scale-100",
+                phase === "guessing" && "scale-105 blur-xl",
+                phase === "revealing" && "scale-100 blur-none",
               )}
             >
               {currentTrack.albumArt ? (
@@ -151,11 +144,7 @@ export function GameBoard({
           </div>
           <div className="flex justify-between text-xs text-neutral-500">
             <span>
-              {phase === "playing"
-                ? `-${timer}s`
-                : phase === "guessing"
-                  ? "Time's up!"
-                  : ""}
+              {phase === "playing" ? `-${timer}s` : phase === "guessing" ? "Time's up!" : ""}
             </span>
             <span>{snippetDuration}s snippet</span>
           </div>
@@ -185,11 +174,7 @@ export function GameBoard({
                 onClick={() => setMuted(!muted)}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white"
               >
-                {muted ? (
-                  <VolumeX className="h-5 w-5" />
-                ) : (
-                  <Volume2 className="h-5 w-5" />
-                )}
+                {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
             </div>
             {!isPlayerReady && (
@@ -204,9 +189,7 @@ export function GameBoard({
           <div className="space-y-4">
             <div className="text-center">
               <p className="text-lg font-semibold">What song is this?</p>
-              <p className="text-sm text-neutral-500">
-                Type your best guess and press Enter
-              </p>
+              <p className="text-sm text-neutral-500">Type your best guess and press Enter</p>
             </div>
             <div className="flex gap-2">
               <input
@@ -216,7 +199,7 @@ export function GameBoard({
                 onChange={(e) => setGuess(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                 placeholder="Enter song name..."
-                className="flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-4 text-lg text-white placeholder-neutral-500 outline-none transition-colors focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                className="flex-1 rounded-xl border border-neutral-700 bg-neutral-900 px-5 py-4 text-lg text-white placeholder-neutral-500 transition-colors outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
               />
               <button
                 type="button"
@@ -234,9 +217,7 @@ export function GameBoard({
           <div className="space-y-4 text-center">
             <div className="space-y-1">
               <p className="text-sm text-neutral-400">The answer was...</p>
-              <p className="text-2xl font-bold text-green-400">
-                {currentTrack.name}
-              </p>
+              <p className="text-2xl font-bold text-green-400">{currentTrack.name}</p>
               <p className="text-sm text-neutral-500">
                 {currentTrack.artists} &middot; {currentTrack.album}
               </p>

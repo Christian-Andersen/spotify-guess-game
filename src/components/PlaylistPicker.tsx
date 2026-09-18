@@ -1,13 +1,8 @@
+import { LogOut, Music2, ArrowRight, ListMusic, Loader2, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import {
-  LogOut,
-  Music2,
-  ArrowRight,
-  ListMusic,
-  Loader2,
-  Search,
-} from "lucide-react";
+
 import type { Playlist } from "../types";
+
 import { cn } from "../lib/cn";
 
 interface PlaylistPickerProps {
@@ -44,16 +39,13 @@ export function PlaylistPicker({
   useEffect(() => {
     if (didFetchRef.current) return;
     didFetchRef.current = true;
-    console.warn("[playlist-picker] initial fetch on mount");
     onFetchPlaylists();
   }, [onFetchPlaylists]);
 
   const extractPlaylistId = (input: string): string | null => {
     const trimmed = input.trim();
     // Match Spotify playlist URL: https://open.spotify.com/playlist/{id}?...
-    const urlMatch = trimmed.match(
-      /open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/,
-    );
+    const urlMatch = trimmed.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
     if (urlMatch) return urlMatch[1];
     // Match spotify:playlist:{id}
     const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/);
@@ -97,8 +89,7 @@ export function PlaylistPicker({
         <div className="mb-8 space-y-2">
           <h2 className="text-2xl font-bold">Choose a Playlist</h2>
           <p className="text-neutral-400">
-            Pick a playlist to test your music knowledge. 10 random tracks will
-            be selected.
+            Pick a playlist to test your music knowledge. 10 random tracks will be selected.
           </p>
         </div>
 
@@ -109,9 +100,7 @@ export function PlaylistPicker({
             className="flex items-center gap-2 text-sm text-neutral-400 transition-colors hover:text-white"
           >
             <ListMusic className="h-4 w-4" />
-            {showManual
-              ? "Browse my playlists instead"
-              : "Paste a playlist URL"}
+            {showManual ? "Browse my playlists instead" : "Paste a playlist URL"}
           </button>
         </div>
 
@@ -123,7 +112,7 @@ export function PlaylistPicker({
               onChange={(e) => setManualUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleManualSubmit()}
               placeholder="Paste Spotify playlist URL or ID..."
-              className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-white placeholder-neutral-500 outline-none transition-colors focus:border-green-500 focus:ring-1 focus:ring-green-500"
+              className="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-white placeholder-neutral-500 transition-colors outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
             />
             <button
               type="button"
@@ -142,15 +131,11 @@ export function PlaylistPicker({
               <div className="text-center">
                 <p className="text-neutral-300">
                   Rate limited by Spotify — retrying in{" "}
-                  <span className="font-bold text-green-400">
-                    {retryCountdown}s
-                  </span>
+                  <span className="font-bold text-green-400">{retryCountdown}s</span>
                 </p>
                 <p className="mt-1 text-sm text-neutral-500">
                   Backing off to avoid further throttling.{" "}
-                  <span className="text-neutral-400">
-                    (attempt {retryAttempt})
-                  </span>
+                  <span className="text-neutral-400">(attempt {retryAttempt})</span>
                 </p>
               </div>
             ) : (
@@ -160,9 +145,7 @@ export function PlaylistPicker({
         ) : playlists.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-20">
             <Search className="h-12 w-12 text-neutral-600" />
-            <p className="text-neutral-400">
-              {playlistError ?? "No playlists found."}
-            </p>
+            <p className="text-neutral-400">{playlistError ?? "No playlists found."}</p>
             <button
               type="button"
               onClick={onManualRetry}
@@ -195,9 +178,7 @@ export function PlaylistPicker({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold group-hover:text-green-400">
-                    {pl.name}
-                  </p>
+                  <p className="truncate font-semibold group-hover:text-green-400">{pl.name}</p>
                   <p className="truncate text-sm text-neutral-500">
                     {pl.owner} &middot; {pl.trackCount} tracks
                   </p>

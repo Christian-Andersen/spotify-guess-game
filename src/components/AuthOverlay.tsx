@@ -22,8 +22,7 @@ export function AuthOverlay({ onLogin, loading, error }: AuthOverlayProps) {
             Guess the <span className="text-green-400">Song</span>
           </h1>
           <p className="text-lg text-neutral-400">
-            Listen to snippets. Name the track. How well do you know your
-            playlists?
+            Listen to snippets. Name the track. How well do you know your playlists?
           </p>
         </div>
 

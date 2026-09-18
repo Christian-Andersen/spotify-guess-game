@@ -29,8 +29,7 @@ function extractMessage(err: unknown): string {
 // The Spotify SDK surfaces rate limits as plain Errors with no `status` on
 // the object, only a message like "The app has exceeded its rate limits."
 // Quota hits (July 2026+) instead return a body with `reason: "QUOTA_EXCEEDED"`.
-const THROTTLE_PATTERN =
-  /rate\s*limit|too\s*many\s*requests|rate\s*limited|quota\s*exceeded/i;
+const THROTTLE_PATTERN = /rate\s*limit|too\s*many\s*requests|rate\s*limited|quota\s*exceeded/i;
 
 function extractReason(err: unknown): string | undefined {
   if (!err || typeof err !== "object") return undefined;
@@ -66,18 +65,12 @@ export function isRetryableError(err: unknown): boolean {
     // The SDK often strips the status; fall back to name/message/reason
     // matching to distinguish throttling (retry) from auth/validation (stop).
     const name = (err as { name?: string } | null)?.name ?? "";
-    if (
-      name === "TypeError" ||
-      name === "TimeoutError" ||
-      name === "AbortError"
-    ) {
+    if (name === "TypeError" || name === "TimeoutError" || name === "AbortError") {
       return true;
     }
     const reason = extractReason(err);
     if (reason === "QUOTA_EXCEEDED") return true;
-    return THROTTLE_PATTERN.test(
-      `${extractMessage(err)} ${reason ?? ""}`,
-    );
+    return THROTTLE_PATTERN.test(`${extractMessage(err)} ${reason ?? ""}`);
   }
   return status === 429 || (status >= 500 && status <= 599);
 }

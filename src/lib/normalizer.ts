@@ -6,10 +6,7 @@ export function normalizeTitle(title: string): string {
       // Remove bracketed content: [Remastered], [Deluxe Edition], etc.
       .replace(/\[[^\]]*\]/g, "")
       // Remove common suffixes: "- 2011 Remaster", "– Remastered 2011"
-      .replace(
-        /[-–—]\s*(?:remaster(?:ed)?\s*)?(?:\d{4})?(?:\s*remaster(?:ed)?)?/gi,
-        "",
-      )
+      .replace(/[-–—]\s*(?:remaster(?:ed)?\s*)?(?:\d{4})?(?:\s*remaster(?:ed)?)?/gi, "")
       // Remove standalone remaster tags: "Remastered 2011", "2011 Remaster"
       .replace(/\d{4}\s+remaster(?:ed)?/gi, "")
       .replace(/remaster(?:ed)?\s+\d{4}/gi, "")

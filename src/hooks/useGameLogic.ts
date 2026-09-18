@@ -1,12 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
 import type { SpotifyApi } from "@spotify/web-api-ts-sdk";
+
+import { useState, useCallback, useEffect, useRef } from "react";
+
 import type { Track, RoundResult, GamePhase, Playlist } from "../types";
+
+import { createExponentialBackoff, isRetryableError, sleep } from "../lib/backoff";
 import { computeMatchScore, getRoundPoints } from "../lib/matching";
-import {
-  createExponentialBackoff,
-  isRetryableError,
-  sleep,
-} from "../lib/backoff";
 
 const ROUNDS_PER_GAME = 10;
 const SNIPPET_DURATION_S = 8;
@@ -19,12 +18,7 @@ interface UseGameLogicParams {
   isPlayerReady: boolean;
 }
 
-export function useGameLogic({
-  sdk,
-  play,
-  pause,
-  isPlayerReady,
-}: UseGameLogicParams) {
+export function useGameLogic({ sdk, play, pause, isPlayerReady }: UseGameLogicParams) {
   const [phase, setPhase] = useState<GamePhase>("playlist");
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -50,25 +44,9 @@ export function useGameLogic({
 
   const fetchPlaylists = useCallback(async () => {
     setIsLoading(true);
-    console.warn("[game:playlists] fetch started");
-
-    // Confirm auth state before requesting
-    try {
-      const token = await sdk.getAccessToken();
-      console.warn("[game:playlists] access token present:", !!token);
-    } catch (tokenErr) {
-      console.error("[game:playlists] getAccessToken threw:", tokenErr);
-    }
 
     try {
       const response = await sdk.currentUser.playlists.playlists(50);
-      console.warn("[game:playlists] response:", {
-        href: response.href,
-        total: response.total,
-        limit: response.limit,
-        offset: response.offset,
-        returnedCount: response.items.length,
-      });
 
       const mapped: Playlist[] = response.items
         .filter((pl) => pl.tracks && pl.tracks.total > 0)
@@ -80,15 +58,7 @@ export function useGameLogic({
           trackCount: pl.tracks?.total ?? 0,
           owner: pl.owner.display_name ?? "Unknown",
         }));
-      console.warn(
-        `[game:playlists] mapped: ${mapped.length} usable of ${response.items.length} returned`,
-      );
-      if (response.items.length > 0 && mapped.length === 0) {
-        console.warn(
-          "[game:playlists] ALL items were filtered out. Sample item:",
-          response.items[0],
-        );
-      }
+
       // Success: clear backoff state so any later failure starts fresh
       playlistBackoffRef.current.reset();
       retryAttemptRef.current = 0;
@@ -97,46 +67,24 @@ export function useGameLogic({
       setRetryAttempt(0);
       setPlaylistError(null);
       setPlaylists(mapped);
-    } catch (e) {
-      const err = e as {
-        status?: number;
-        message?: string;
-        body?: unknown;
-        response?: unknown;
-      };
-      console.error("[game:playlists] fetch FAILED:", e);
-      console.error("[game:playlists] error details:", {
-        name: e instanceof Error ? e.name : typeof e,
-        message: err.message,
-        status: err.status,
-        body: err.body,
-        response: err.response,
-      });
-
-      if (isRetryableError(e)) {
-        const waitMs = playlistBackoffRef.current.nextDelayMs(e);
+    } catch (error) {
+      if (isRetryableError(error)) {
+        const waitMs = playlistBackoffRef.current.nextDelayMs(error);
         const attempt = retryAttemptRef.current + 1;
         retryAttemptRef.current = attempt;
         setIsRetrying(true);
         setRetryAttempt(attempt);
         setRetryCountdown(Math.ceil(waitMs / 1000));
         setPlaylistError(null);
-        console.warn(
-          `[game:playlists] retryable error -> attempt ${attempt}, retrying in ${waitMs}ms`,
-        );
       } else {
         setIsRetrying(false);
         setRetryCountdown(0);
         retryAttemptRef.current = 0;
         setRetryAttempt(0);
-        setPlaylistError(
-          "Could not load playlists. Check your connection and try again.",
-        );
-        console.warn("[game:playlists] terminal error, stopping auto-retry");
+        setPlaylistError("Could not load playlists. Check your connection and try again.");
       }
     } finally {
       setIsLoading(false);
-      console.warn("[game:playlists] fetch finished, isLoading=false");
     }
   }, [sdk]);
 
@@ -147,10 +95,7 @@ export function useGameLogic({
       const t = setTimeout(() => void fetchPlaylists(), 0);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(
-      () => setRetryCountdown((c) => c - 1),
-      1000,
-    );
+    const t = setTimeout(() => setRetryCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [isRetrying, retryCountdown, fetchPlaylists]);
 
@@ -179,11 +124,7 @@ export function useGameLogic({
             );
 
             for (const item of response.items) {
-              if (
-                item.track &&
-                "uri" in item.track &&
-                item.track.type === "track"
-              ) {
+              if (item.track && "uri" in item.track && item.track.type === "track") {
                 const t = item.track;
                 allTracks.push({
                   id: t.id,
@@ -201,20 +142,12 @@ export function useGameLogic({
             if (response.items.length < limit || !response.next) break;
           }
 
-          console.warn(
-            `[game:tracks] fetched ${allTracks.length} tracks for playlist ${playlistId}`,
-          );
           return allTracks;
-        } catch (e) {
-          if (!isRetryableError(e)) {
-            console.error("[game:tracks] terminal error fetching tracks:", e);
+        } catch (error) {
+          if (!isRetryableError(error)) {
             return [];
           }
-          const waitMs = backoff.nextDelayMs(e);
-          console.warn(
-            `[game:tracks] retryable error fetching tracks, retrying in ${waitMs}ms`,
-            e,
-          );
+          const waitMs = backoff.nextDelayMs(error);
           await sleep(waitMs);
         }
       }
@@ -232,10 +165,7 @@ export function useGameLogic({
       }
 
       const shuffled = [...allTracks].sort(() => Math.random() - 0.5);
-      const selected = shuffled.slice(
-        0,
-        Math.min(ROUNDS_PER_GAME, shuffled.length),
-      );
+      const selected = shuffled.slice(0, Math.min(ROUNDS_PER_GAME, shuffled.length));
 
       setTracks(selected);
       setCurrentRoundIndex(0);
@@ -259,9 +189,7 @@ export function useGameLogic({
       track.duration_ms - SNIPPET_DURATION_S * 1000 - BUFFER_S * 1000,
     );
     const randomPos =
-      maxPos <= minPos
-        ? minPos
-        : Math.floor(Math.random() * (maxPos - minPos) + minPos);
+      maxPos <= minPos ? minPos : Math.floor(Math.random() * (maxPos - minPos) + minPos);
 
     setPhase("playing");
     await play([track.uri], randomPos);
@@ -271,14 +199,7 @@ export function useGameLogic({
       await pause();
       setPhase("guessing");
     }, SNIPPET_DURATION_S * 1000);
-  }, [
-    isPlayerReady,
-    tracks,
-    currentRoundIndex,
-    play,
-    pause,
-    clearAutoPause,
-  ]);
+  }, [isPlayerReady, tracks, currentRoundIndex, play, pause, clearAutoPause]);
 
   const submitGuess = useCallback(
     (guess: string) => {

@@ -45,7 +45,7 @@ npm run dev
 
 Open `http://127.0.0.1:5173` (match the loopback IP you registered — not `localhost`), log in with Spotify, and accept the streaming + playlist scopes.
 
-> **Important:** You must browse to the *exact* origin you registered. The app builds
+> **Important:** You must browse to the _exact_ origin you registered. The app builds
 > its redirect URI from `window.location.origin`, so accessing the app via
 > `http://localhost:5173` while you registered `http://127.0.0.1:5173` will fail
 > with `redirect_uri: Not matching configuration`. Loopback IPs (127.0.0.1 / ::1)
@@ -81,7 +81,7 @@ src/
 
 | Script            | Description                          |
 | ----------------- | ------------------------------------ |
-| `npm run dev`     | Start the Vite dev server             |
-| `npm run build`   | Type-check and bundle for production  |
-| `npm run preview` | Preview the production build          |
-| `npm run lint`    | Run oxlint                            |
+| `npm run dev`     | Start the Vite dev server            |
+| `npm run build`   | Type-check and bundle for production |
+| `npm run preview` | Preview the production build         |
+| `npm run lint`    | Run oxlint                           |

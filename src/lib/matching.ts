@@ -41,8 +41,10 @@ export function computeMatchScore(
   return { similarity: Math.max(0, similarity), exact: false };
 }
 
+export const MAX_POINTS_PER_ROUND = 3;
+
 export function getRoundPoints(similarity: number, exact: boolean): number {
-  if (exact) return 3;
+  if (exact) return MAX_POINTS_PER_ROUND;
   if (similarity >= 0.8) return 2;
   if (similarity >= 0.5) return 1;
   return 0;

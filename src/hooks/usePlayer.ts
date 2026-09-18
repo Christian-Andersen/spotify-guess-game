@@ -7,7 +7,6 @@ interface UsePlayerOptions {
 
 export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
   const [isReady, setIsReady] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
@@ -45,12 +44,6 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
 
       player.addListener("not_ready", () => {
         setIsReady(false);
-      });
-
-      player.addListener("player_state_changed", (state) => {
-        if (state) {
-          setIsPlaying(!state.paused);
-        }
       });
 
       player.addListener("initialization_error", ({ message }) => {
@@ -102,16 +95,6 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
     await playerRef.current.pause();
   }, []);
 
-  const resume = useCallback(async () => {
-    if (!playerRef.current) return;
-    await playerRef.current.resume();
-  }, []);
-
-  const seek = useCallback(async (positionMs: number) => {
-    if (!playerRef.current) return;
-    await playerRef.current.seek(positionMs);
-  }, []);
-
   const setVolume = useCallback(async (volume: number) => {
     if (!playerRef.current) return;
     await playerRef.current.setVolume(volume);
@@ -119,11 +102,8 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
 
   return {
     isReady,
-    isPlaying,
     play,
     pause,
-    resume,
-    seek,
     setVolume,
     error,
   };

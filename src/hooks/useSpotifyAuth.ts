@@ -15,7 +15,6 @@ const SCOPES = [
 export function useSpotifyAuth() {
   const [sdk, setSdk] = useState<SpotifyApi | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   // Derive error/loading from the env var instead of setting state in an effect
   const [loading, setLoading] = useState(() => Boolean(CLIENT_ID));
   const [error, setError] = useState<string | null>(() =>
@@ -33,12 +32,11 @@ export function useSpotifyAuth() {
 
     internalSdk
       .authenticate()
-      .then(({ authenticated, accessToken: token }) => {
+      .then(({ authenticated }) => {
         if (authenticated) {
           sdkRef.current = internalSdk;
           setSdk(internalSdk);
           setIsAuthenticated(true);
-          setAccessToken(token.access_token);
         }
       })
       .catch((e: unknown) => {
@@ -64,12 +62,11 @@ export function useSpotifyAuth() {
     const internalSdk = new SpotifyApi(auth);
 
     try {
-      const { authenticated, accessToken: token } = await internalSdk.authenticate();
+      const { authenticated } = await internalSdk.authenticate();
       if (authenticated) {
         sdkRef.current = internalSdk;
         setSdk(internalSdk);
         setIsAuthenticated(true);
-        setAccessToken(token.access_token);
         setError(null);
       }
     } catch (e) {
@@ -83,7 +80,6 @@ export function useSpotifyAuth() {
     sdkRef.current = null;
     setSdk(null);
     setIsAuthenticated(false);
-    setAccessToken(null);
   }, [sdk]);
 
   const fetchAccessToken = useCallback(async (): Promise<string | null> => {
@@ -96,7 +92,6 @@ export function useSpotifyAuth() {
   return {
     sdk,
     isAuthenticated,
-    accessToken,
     login,
     logout,
     loading,

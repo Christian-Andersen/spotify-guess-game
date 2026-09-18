@@ -15,6 +15,7 @@ interface GameBoardProps {
   onPlaySnippet: () => void;
   onSubmitGuess: (guess: string) => void;
   onNextRound: () => void;
+  onSetVolume: (volume: number) => void;
   lastGuess?: string;
   lastPoints?: number;
   lastSimilarity?: number;
@@ -31,6 +32,7 @@ export function GameBoard({
   onPlaySnippet,
   onSubmitGuess,
   onNextRound,
+  onSetVolume,
   lastGuess,
   lastPoints,
   lastSimilarity,
@@ -76,6 +78,12 @@ export function GameBoard({
       }
     };
   }, [phase]);
+
+  const toggleMute = () => {
+    const nextMuted = !muted;
+    setMuted(nextMuted);
+    onSetVolume(nextMuted ? 0 : 0.5);
+  };
 
   const handleSubmit = () => {
     const trimmed = guess.trim();
@@ -171,7 +179,7 @@ export function GameBoard({
               </button>
               <button
                 type="button"
-                onClick={() => setMuted(!muted)}
+                onClick={toggleMute}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-white"
               >
                 {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}

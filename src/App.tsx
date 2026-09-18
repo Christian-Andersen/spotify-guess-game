@@ -19,6 +19,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
     isReady: isPlayerReady,
     play,
     pause,
+    setVolume,
     error: playerError,
   } = usePlayer({
     getAccessToken: fetchAccessToken,
@@ -100,6 +101,7 @@ function GameApp({ sdk, onLogout, fetchAccessToken }: GameAppProps) {
         onPlaySnippet={game.playSnippet}
         onSubmitGuess={game.submitGuess}
         onNextRound={game.nextRound}
+        onSetVolume={setVolume}
         lastGuess={lastResult?.guess}
         lastPoints={lastResult?.points}
         lastSimilarity={lastResult?.similarity}
@@ -124,7 +126,7 @@ export default function App() {
   }
 
   if (!isAuthenticated || !sdk) {
-    return <AuthOverlay onLogin={login} loading={false} error={error} />;
+    return <AuthOverlay onLogin={login} error={error} />;
   }
 
   return <GameApp sdk={sdk} onLogout={logout} fetchAccessToken={fetchAccessToken} />;

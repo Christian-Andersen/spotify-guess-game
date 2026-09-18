@@ -1,11 +1,4 @@
-export type GamePhase =
-  | "auth"
-  | "playlist"
-  | "loading"
-  | "playing"
-  | "guessing"
-  | "revealing"
-  | "score";
+export type GamePhase = "playlist" | "loading" | "playing" | "guessing" | "revealing" | "score";
 
 export interface Track {
   id: string;

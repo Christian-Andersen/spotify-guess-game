@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { Track, RoundResult, GamePhase, Playlist } from "../types";
 
 import { createExponentialBackoff, isRetryableError, sleep } from "../lib/backoff";
-import { computeMatchScore, getRoundPoints } from "../lib/matching";
+import { computeMatchScore, getRoundPoints, MAX_POINTS_PER_ROUND } from "../lib/matching";
 
 const ROUNDS_PER_GAME = 10;
 const SNIPPET_DURATION_S = 8;
@@ -111,15 +111,13 @@ export function useGameLogic({ sdk, play, pause, isPlayerReady }: UseGameLogicPa
         try {
           let allTracks: Track[] = [];
           let offset = 0;
-          const limit = 100;
-
-          // eslint-disable-next-line no-constant-condition
+          const limit = 50;
           while (true) {
             const response = await sdk.playlists.getPlaylistItems(
               playlistId,
               undefined,
               undefined,
-              limit as never,
+              limit,
               offset,
             );
 
@@ -246,7 +244,7 @@ export function useGameLogic({ sdk, play, pause, isPlayerReady }: UseGameLogicPa
   }, [clearAutoPause]);
 
   const currentTrack = tracks[currentRoundIndex] ?? null;
-  const maxPossibleScore = tracks.length * 3;
+  const maxPossibleScore = tracks.length * MAX_POINTS_PER_ROUND;
   const roundsTotal = tracks.length;
 
   return {

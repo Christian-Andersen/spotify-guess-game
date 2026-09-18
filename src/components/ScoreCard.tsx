@@ -60,7 +60,7 @@ export function ScoreCard({ totalScore, maxPossibleScore, results, onPlayAgain }
           <h3 className="mb-4 text-lg font-semibold text-neutral-300">Round Results</h3>
           {results.map((result, i) => (
             <div
-              key={`${result.track.id}-${String(i)}`}
+              key={`${result.track.id}-${i}`}
               className={cn(
                 "flex items-center gap-4 rounded-xl border p-4 transition-colors",
                 result.wasExact

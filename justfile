@@ -30,4 +30,4 @@ build:
 run:
     npm run dev
 
-continuous_integration: audit check build
+continuous_integration: setup audit check build

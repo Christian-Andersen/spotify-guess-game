@@ -3,7 +3,6 @@ set dotenv-load
 alias b := build
 alias c := check
 alias r := run
-alias ci := continuous_integration
 
 [private]
 default:
@@ -30,4 +29,4 @@ build:
 run:
     npm run dev
 
-continuous_integration: setup audit check build
+ci: setup audit check build

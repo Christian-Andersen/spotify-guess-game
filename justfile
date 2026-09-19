@@ -14,8 +14,7 @@ ensure-setup:
 
 # install all required tools and dependencies
 setup:
-    @echo "Installing dependencies..."
-    npm install
+    npm install --no-fund --no-audit
 
 audit:
     npm audit

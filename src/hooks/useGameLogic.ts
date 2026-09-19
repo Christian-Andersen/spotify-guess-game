@@ -324,7 +324,7 @@ export function useGameLogic({
         void pause();
         setPhase("revealed");
       } else {
-        setWrongPicks((prev) => [...prev.slice(-2), picked.name]);
+        setWrongPicks((prev) => [...prev, picked.name]);
       }
     },
     [phase, currentTrack, elapsed, pause],

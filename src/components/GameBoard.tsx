@@ -184,9 +184,8 @@ export function GameBoard({
               </div>
             )}
 
-            {/* Guess box + give up */}
+            {/* Give up + guess box */}
             <div className={cn("space-y-3", phase === "revealed" && "opacity-40")}>
-              <SongPicker pool={pool} onPick={onPickTrack} />
               <button
                 type="button"
                 onClick={onGiveUp}
@@ -196,6 +195,7 @@ export function GameBoard({
                 <Flag className="h-4 w-4" />
                 Give Up
               </button>
+              <SongPicker pool={pool} onPick={onPickTrack} />
             </div>
           </>
         )}

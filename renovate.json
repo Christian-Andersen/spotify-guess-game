@@ -19,9 +19,7 @@
       "customType": "regex",
       "description": "Update the pnpm version pinned in flake.nix permittedInsecurePackages",
       "fileMatch": ["(^|/)flake\\.nix$"],
-      "matchStrings": [
-        "permittedInsecurePackages\\s*=\\s*\\[\\s*\"pnpm-(?<currentValue>[^\"]+)\""
-      ],
+      "matchStrings": ["permittedInsecurePackages\\s*=\\s*\\[\\s*\"pnpm-(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "pnpm",
       "datasourceTemplate": "npm",
       "versioningTemplate": "npm"

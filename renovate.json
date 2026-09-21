@@ -13,5 +13,18 @@
       "groupName": "Nix flake inputs",
       "schedule": ["before 4am on the first day of the month"]
     }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update the pnpm version pinned in flake.nix permittedInsecurePackages",
+      "fileMatch": ["(^|/)flake\\.nix$"],
+      "matchStrings": [
+        "permittedInsecurePackages\\s*=\\s*\\[\\s*\"pnpm-(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    }
   ]
 }

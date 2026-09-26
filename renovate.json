@@ -1,26 +1,38 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
   "nix": {
     "enabled": true
   },
   "lockFileMaintenance": {
-    "enabled": true,
-    "extends": ["schedule:monthly"]
+    "enabled": true
   },
   "packageRules": [
     {
+      "description": "Group Nix flake input updates into a single PR",
       "matchManagers": ["nix"],
+      "matchUpdateTypes": ["digest"],
       "groupName": "Nix flake inputs",
-      "schedule": ["before 4am on the first day of the month"]
+      "groupSlug": "nix-flake-inputs"
+    },
+    {
+      "description": "Group non-major CI action updates in .forgejo/workflows; major bumps get their own PR",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "groupName": "CI workflow actions",
+      "groupSlug": "ci-workflow-actions"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
       "description": "Update the pnpm version pinned in flake.nix permittedInsecurePackages",
-      "fileMatch": ["(^|/)flake\\.nix$"],
-      "matchStrings": ["permittedInsecurePackages\\s*=\\s*\\[\\s*\"pnpm-(?<currentValue>[^\"]+)\""],
+      "managerFilePatterns": ["/(^|/)flake\\.nix$/"],
+      "matchStrings": [
+        "permittedInsecurePackages\\s*=\\s*\\[[^\\]]*\"pnpm-(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
       "depNameTemplate": "pnpm",
+      "packageNameTemplate": "pnpm",
       "datasourceTemplate": "npm",
       "versioningTemplate": "npm"
     }

@@ -10,7 +10,7 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
-        config.permittedInsecurePackages = [ "pnpm-12.5.1" ];
+        config.permittedInsecurePackages = [ "pnpm-12.6.0" ];
       };
     in
     {

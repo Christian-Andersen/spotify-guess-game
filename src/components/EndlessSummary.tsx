@@ -34,13 +34,12 @@ function StatCard({
 
 export function EndlessSummary({ results, totalScore, onNewGame }: EndlessSummaryProps) {
   const rounds = results.length;
-  const correct = results.filter((r) => r.correct).length;
+  const correctResults = results.filter((r) => r.correct);
+  const correct = correctResults.length;
   const gaveUp = rounds - correct;
-  const best = correct > 0 ? Math.max(...results.filter((r) => r.correct).map((r) => r.points)) : 0;
+  const best = correct > 0 ? Math.max(...correctResults.map((r) => r.points)) : 0;
   const avgGuessSeconds =
-    correct > 0
-      ? results.filter((r) => r.correct).reduce((acc, r) => acc + r.elapsedSeconds, 0) / correct
-      : 0;
+    correct > 0 ? correctResults.reduce((acc, r) => acc + r.elapsedSeconds, 0) / correct : 0;
 
   return (
     <div className="min-h-screen bg-neutral-950">

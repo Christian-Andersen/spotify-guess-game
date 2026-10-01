@@ -25,7 +25,6 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
         keys: ["name", "artists"],
         threshold: 0.35,
         ignoreLocation: true,
-        includeScore: true,
       }),
     [pool],
   );
@@ -36,7 +35,7 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
     return fuse
       .search(trimmed)
       .slice(0, MAX_RESULTS)
-      .map((r) => ({ ...r.item, score: r.score ?? 1 }));
+      .map((r) => r.item);
   }, [fuse, query]);
 
   // The highlighted result (index is kept in bounds by the arrow handlers).

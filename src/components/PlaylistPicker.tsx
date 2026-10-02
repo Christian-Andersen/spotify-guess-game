@@ -49,7 +49,9 @@ export function PlaylistPicker({
     // Match Spotify playlist URL, with optional locale prefix:
     // https://open.spotify.com/playlist/{id} or
     // https://open.spotify.com/intl-{locale}/playlist/{id}
-    const urlId = trimmed.match(/open\.spotify\.com\/(?:intl-[a-zA-Z-]+\/)?playlist\/([a-zA-Z0-9]+)/)?.[1];
+    const urlId = trimmed.match(
+      /open\.spotify\.com\/(?:intl-[a-zA-Z-]+\/)?playlist\/([a-zA-Z0-9]+)/,
+    )?.[1];
     if (urlId) return urlId;
     // Match spotify:playlist:{id}
     const uriId = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/)?.[1];

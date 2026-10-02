@@ -44,8 +44,9 @@ export function GameBoard({
   onQuit,
 }: GameBoardProps) {
   const durationSec = durationMs ? durationMs / 1000 : 0;
-  const songProgress =
-    durationSec > 0 ? Math.min(100, ((positionMs ?? 0) / durationSec / 1000) * 100) : 0;
+  const songProgress = durationMs
+    ? Math.min(100, ((positionMs ?? 0) / durationMs) * 100)
+    : 0;
   const clueTicks =
     durationSec > 0
       ? [ARTIST_CLUE_AT_S, ALBUM_ART_CLUE_AT_S, ALBUM_NAME_CLUE_AT_S].filter(

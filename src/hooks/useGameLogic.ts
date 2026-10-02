@@ -324,7 +324,8 @@ export function useGameLogic({
         void pause();
         setPhase("revealed");
       } else {
-        setWrongPicks((prev) => [...prev, picked.name]);
+        // Picking the same wrong track twice adds no information — keep one chip.
+        setWrongPicks((prev) => (prev.includes(picked.name) ? prev : [...prev, picked.name]));
       }
     },
     [phase, currentTrack, elapsed, pause],

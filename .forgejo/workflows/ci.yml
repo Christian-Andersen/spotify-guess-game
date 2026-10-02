@@ -4,13 +4,59 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
       - name: Install Nix
         uses: https://github.com/DeterminateSystems/nix-installer-action@v23
+
+      # Vite inlines VITE_* at build time, so a deploy built without a client ID
+      # ships a bundle that cannot authenticate. Fail loudly before uploading it.
+      - name: Verify deploy configuration
+        if: github.event_name != 'pull_request'
+        env:
+          VITE_SPOTIFY_CLIENT_ID: ${{ vars.VITE_SPOTIFY_CLIENT_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -uo pipefail
+          missing=()
+          for name in VITE_SPOTIFY_CLIENT_ID CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Unset deploy configuration: ${missing[*]}"
+            echo "Add a repository variable for VITE_SPOTIFY_CLIENT_ID and secrets for"
+            echo "CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN (Settings -> Actions)."
+            exit 1
+          fi
+
       - name: Run CI
+        env:
+          VITE_SPOTIFY_CLIENT_ID: ${{ vars.VITE_SPOTIFY_CLIENT_ID }}
         run: nix develop --command just ci
+
+      # PRs build but never publish: forks cannot read secrets, and pushing a
+      # PR's bundle to Pages production would replace the live site.
+      - name: Publish to Cloudflare Pages
+        if: github.event_name != 'pull_request'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # GITHUB_REPOSITORY is "<owner>/<repo>"; strip the owner. Pages project
+          # names must be lowercase, and repo names need not be.
+          PROJECT_NAME="${GITHUB_REPOSITORY##*/}"
+          PROJECT_NAME="$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]')"
+          echo "Deploying dist to Cloudflare Pages project '$PROJECT_NAME'"
+          # No --branch: that would publish a *preview* deployment instead of
+          # production, and would create a branch alias on every run.
+          nix develop --command npx wrangler@4.146.0 pages deploy dist \
+            --project-name="$PROJECT_NAME"

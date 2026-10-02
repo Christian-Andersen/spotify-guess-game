@@ -14,7 +14,7 @@ ensure-setup:
 
 # install all required tools and dependencies
 setup:
-    npm install --no-fund --no-audit
+    npm ci --no-fund --no-audit
 
 audit:
     npm audit

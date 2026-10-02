@@ -76,13 +76,21 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
 
     let disposed = false;
 
-    // Avoid loading script multiple times
+    // Avoid loading the script multiple times: scriptRef is per-mount, so a
+    // remount must also reuse a tag left behind by a previous mount.
     if (!scriptRef.current) {
-      const script = document.createElement("script");
-      script.src = "https://sdk.scdn.co/spotify-player.js";
-      script.async = true;
-      document.body.appendChild(script);
-      scriptRef.current = script;
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[src="https://sdk.scdn.co/spotify-player.js"]',
+      );
+      if (existing) {
+        scriptRef.current = existing;
+      } else {
+        const script = document.createElement("script");
+        script.src = "https://sdk.scdn.co/spotify-player.js";
+        script.async = true;
+        document.body.appendChild(script);
+        scriptRef.current = script;
+      }
     }
 
     const onSDKReady = () => {

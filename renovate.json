@@ -15,6 +15,14 @@
       "matchUpdateTypes": ["patch", "minor"],
       "groupName": "CI workflow actions",
       "groupSlug": "ci-workflow-actions"
+    },
+    {
+      "description": "Group non-major devDependency updates; the toolchain here moves together, and the pairs that have to agree (tailwindcss with @tailwindcss/vite, @types/react with @types/react-dom) do so in one PR",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "Dev dependencies",
+      "groupSlug": "dev-dependencies"
     }
   ],
   "customManagers": [

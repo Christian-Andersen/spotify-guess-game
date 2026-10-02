@@ -43,9 +43,10 @@ jobs:
           VITE_SPOTIFY_CLIENT_ID: ${{ vars.VITE_SPOTIFY_CLIENT_ID }}
         run: nix develop --command just ci
 
-      # PRs build but never publish: forks cannot read secrets, and pushing a
-      # PR's bundle to Pages production would replace the live site.
-      - name: Publish to Cloudflare Pages
+      # `wrangler pages deploy` only creates a missing project when it can prompt
+      # for the production branch, which a CI runner cannot answer. Create it
+      # explicitly, and only when it is genuinely absent so reruns stay green.
+      - name: Ensure Cloudflare Pages project exists
         if: github.event_name != 'pull_request'
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -55,8 +56,27 @@ jobs:
           # names must be lowercase, and repo names need not be.
           PROJECT_NAME="${GITHUB_REPOSITORY##*/}"
           PROJECT_NAME="$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]')"
-          echo "Deploying dist to Cloudflare Pages project '$PROJECT_NAME'"
+          echo "PAGES_PROJECT=$PROJECT_NAME" >> "$GITHUB_ENV"
+
+          if nix develop --command npx wrangler@4.146.0 pages project list \
+            | grep -qw "$PROJECT_NAME"; then
+            echo "Pages project '$PROJECT_NAME' already exists."
+          else
+            echo "Creating Pages project '$PROJECT_NAME' (production branch: main)"
+            nix develop --command npx wrangler@4.146.0 pages project create \
+              "$PROJECT_NAME" --production-branch main
+          fi
+
+      # PRs build but never publish: forks cannot read secrets, and pushing a
+      # PR's bundle to Pages production would replace the live site.
+      - name: Publish to Cloudflare Pages
+        if: github.event_name != 'pull_request'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          echo "Deploying dist to Cloudflare Pages project '$PAGES_PROJECT'"
           # No --branch: that would publish a *preview* deployment instead of
           # production, and would create a branch alias on every run.
           nix develop --command npx wrangler@4.146.0 pages deploy dist \
-            --project-name="$PROJECT_NAME"
+            --project-name="$PAGES_PROJECT"

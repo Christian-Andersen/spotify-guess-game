@@ -387,7 +387,10 @@ export function useGameLogic({
     setPhase("playlist");
   }, [pause, setRepeat]);
 
-  const roundNumber = results.length + 1;
+  // `results` already contains the round being revealed, so during
+  // "revealed" the current round is `results.length` — adding one would show
+  // the *next* round's number (and remount GameBoard) while the answer is up.
+  const roundNumber = phase === "revealed" ? results.length : results.length + 1;
 
   return {
     phase,

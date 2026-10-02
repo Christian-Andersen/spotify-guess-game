@@ -107,9 +107,12 @@ src/
 
 ## Scripts
 
-| Script            | Description                          |
-| ----------------- | ------------------------------------ |
-| `npm run dev`     | Start the Vite dev server            |
-| `npm run build`   | Type-check and bundle for production |
-| `npm run preview` | Preview the production build         |
-| `npm run lint`    | Run oxlint                           |
+| Script              | Description                          |
+| ------------------- | ------------------------------------ |
+| `npm run dev`       | Start the Vite dev server            |
+| `npm run build`     | Type-check and bundle for production |
+| `npm run preview`   | Preview the production build         |
+| `npm run lint`      | Run oxlint                           |
+| `npm run lint:fix`  | Run oxlint with autofix              |
+| `npm run fmt`       | Format with oxfmt                    |
+| `npm run fmt:check` | Check formatting with oxfmt          |

@@ -25,7 +25,6 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
         keys: ["name", "artists"],
         threshold: 0.35,
         ignoreLocation: true,
-        includeScore: true,
       }),
     [pool],
   );
@@ -36,7 +35,7 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
     return fuse
       .search(trimmed)
       .slice(0, MAX_RESULTS)
-      .map((r) => ({ ...r.item, score: r.score ?? 1 }));
+      .map((r) => r.item);
   }, [fuse, query]);
 
   // The highlighted result (index is kept in bounds by the arrow handlers).
@@ -94,7 +93,7 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
           role="combobox"
           aria-expanded={results.length > 0}
           aria-controls="song-results"
-          aria-activedescendant={highlighted ? `song-option-${highlighted.id}` : undefined}
+          aria-activedescendant={highlighted ? `song-option-${highlightIndex}` : undefined}
           aria-autocomplete="list"
           className="w-full rounded-xl border border-neutral-700 bg-neutral-900 py-4 pr-4 pl-12 text-lg text-white placeholder-neutral-500 transition-colors outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
         />
@@ -109,8 +108,8 @@ export function SongPicker({ pool, onPick }: SongPickerProps) {
         >
           {results.map((track, i) => (
             <li
-              key={track.id}
-              id={`song-option-${track.id}`}
+              key={`${track.id}-${i}`}
+              id={`song-option-${i}`}
               role="option"
               aria-selected={i === highlightIndex}
               data-highlighted={i === highlightIndex}

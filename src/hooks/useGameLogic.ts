@@ -324,7 +324,8 @@ export function useGameLogic({
         void pause();
         setPhase("revealed");
       } else {
-        setWrongPicks((prev) => [...prev, picked.name]);
+        // Picking the same wrong track twice adds no information — keep one chip.
+        setWrongPicks((prev) => (prev.includes(picked.name) ? prev : [...prev, picked.name]));
       }
     },
     [phase, currentTrack, elapsed, pause],
@@ -387,7 +388,10 @@ export function useGameLogic({
     setPhase("playlist");
   }, [pause, setRepeat]);
 
-  const roundNumber = results.length + 1;
+  // `results` already contains the round being revealed, so during
+  // "revealed" the current round is `results.length` — adding one would show
+  // the *next* round's number (and remount GameBoard) while the answer is up.
+  const roundNumber = phase === "revealed" ? results.length : results.length + 1;
 
   return {
     phase,

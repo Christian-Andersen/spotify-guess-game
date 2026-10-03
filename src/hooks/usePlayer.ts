@@ -12,26 +12,31 @@ interface UsePlayerOptions {
 
 /**
  * Starts playback on the given device via the Connect Web API. Returns the
- * HTTP status so callers can distinguish the 403 "scope not granted" case.
+ * HTTP status so callers can distinguish the 403 "scope not granted" case,
+ * or `null` when no response arrived at all (transport-level failure).
  */
 async function startPlayback(
   deviceId: string,
   token: string,
   uris: string[],
   positionMs: number,
-): Promise<number> {
-  const res = await fetch(
-    `${SPOTIFY_API_BASE}/me/player/play?device_id=${encodeURIComponent(deviceId)}`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `${SPOTIFY_API_BASE}/me/player/play?device_id=${encodeURIComponent(deviceId)}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uris, position_ms: positionMs }),
       },
-      body: JSON.stringify({ uris, position_ms: positionMs }),
-    },
-  );
-  return res.status;
+    );
+    return res.status;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -179,6 +184,10 @@ export function usePlayer({ getAccessToken, enabled }: UsePlayerOptions) {
       if (firstPlay) await sleep(FIRST_PLAY_WARMUP_MS);
 
       const status = await startPlayback(deviceId, token, uris, positionMs);
+      if (status === null) {
+        setError("Could not start playback. Check your connection and try again.");
+        return;
+      }
       if (status < 200 || status >= 300) {
         setError(
           status === 403

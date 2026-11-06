@@ -1,5 +1,5 @@
 {
-  "ignorePatterns": [".direnv", "dist", "node_modules"],
+  "ignorePatterns": ["dist", "node_modules"],
   "sortImports": {
     "groups": [
       "type-import",
